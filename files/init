@@ -132,60 +132,60 @@ ParseKernelParameters()
 
     for param in $(</proc/cmdline); do
         case "${param}" in
-        root=*)
-            _root=$(RetrieveDriveValue "${param}")
-            ;;
-        options=*)
-            _options=$(ParseOption "${param}")
-            ;;
-        usr=*)
-            _usr=$(ParseOption "${param}")
-            ;;
-        enc_options=*)
-            _enc_options=$(ParseOption "${param}")
-            ;;
-        enc_drives=*)
-            _enc_drives=$(ParseOption "${param}")
-            ;;
-        enc_targets=*)
-            _enc_targets=$(ParseOption "${param}")
-            ;;
-        enc_type=*)
-            _enc_type=$(ParseOption "${param}")
-            ;;
-        enc_key=*)
-            _enc_key=$(ParseOption "${param}")
-            ;;
-        enc_key_drive=*)
-            _enc_key_drive=$(RetrieveDriveValue "${param}")
-            ;;
-        enc_key_ignore)
-            _enc_key_ignore=1
-            ;;
-        enc_tries=*)
-            _enc_tries=$(ParseOption "${param}")
-            ;;
-        init=*)
-            _init=$(ParseOption "${param}")
-            ;;
-        by=*)
-            _by=$(ParseByOption "${param}")
-            ;;
-        refresh)
-            _refresh=1
-            ;;
-        recover)
-            _recover=1
-            ;;
-        su)
-            _su=1
-            ;;
-        redetect)
-            _redetect=1
-            ;;
-        triggers=*)
-            IFS="," read -a _triggers <<< $(ParseOption "${param}")
-            ;;
+            root=*)
+                _root=$(RetrieveDriveValue "${param}")
+                ;;
+            options=*)
+                _options=$(ParseOption "${param}")
+                ;;
+            usr=*)
+                _usr=$(ParseOption "${param}")
+                ;;
+            enc_options=*)
+                _enc_options=$(ParseOption "${param}")
+                ;;
+            enc_drives=*)
+                _enc_drives=$(ParseOption "${param}")
+                ;;
+            enc_targets=*)
+                _enc_targets=$(ParseOption "${param}")
+                ;;
+            enc_type=*)
+                _enc_type=$(ParseOption "${param}")
+                ;;
+            enc_key=*)
+                _enc_key=$(ParseOption "${param}")
+                ;;
+            enc_key_drive=*)
+                _enc_key_drive=$(RetrieveDriveValue "${param}")
+                ;;
+            enc_key_ignore)
+                _enc_key_ignore=1
+                ;;
+            enc_tries=*)
+                _enc_tries=$(ParseOption "${param}")
+                ;;
+            init=*)
+                _init=$(ParseOption "${param}")
+                ;;
+            by=*)
+                _by=$(ParseByOption "${param}")
+                ;;
+            refresh)
+                _refresh=1
+                ;;
+            recover)
+                _recover=1
+                ;;
+            su)
+                _su=1
+                ;;
+            redetect)
+                _redetect=1
+                ;;
+            triggers=*)
+                IFS="," read -a _triggers <<< $(ParseOption "${param}")
+                ;;
         esac
     done
 
@@ -285,7 +285,7 @@ GetDrivesNeededToDecrypt()
     fi
 
     IFS="," read -a tempDrives <<< "${_enc_drives}"
-    
+
     for i in "${!tempDrives[@]}"; do
         case ${tempDrives[i]} in
             UUID=*)
@@ -354,22 +354,22 @@ AskEncryptionType()
 
     while [[ ${isResponseValid} == "no" ]]; do
         case "${choice}" in
-        ""|1)
-            _enc_type="pass"
-            isResponseValid="yes"
-            ;;
-        2)
-            _enc_type="key"
-            isResponseValid="yes"
-            ;;
-        3)
-            _enc_type="key_gpg"
-            isResponseValid="yes"
-            ;;
-        *)
-            Ask "Invalid input. Please enter a correct choice: "
-            read choice
-            ;;
+            ""|1)
+                _enc_type="pass"
+                isResponseValid="yes"
+                ;;
+            2)
+                _enc_type="key"
+                isResponseValid="yes"
+                ;;
+            3)
+                _enc_type="key_gpg"
+                isResponseValid="yes"
+                ;;
+            *)
+                Ask "Invalid input. Please enter a correct choice: "
+                read choice
+                ;;
         esac
     done
 }
@@ -530,16 +530,15 @@ DecryptDrives()
 
     if [[ ! -z ${_enc_targets// } ]]; then
         IFS="," read -a tempTargets <<< "${_enc_targets}"
-    fi 
+    fi
 
     for i in "${!_drives[@]}"; do
-    
         if [[ -z ${tempTargets[i]// } ]]; then
             vaultname="vault_${i}_$(basename "${_drives[i]}")"
         else
             vaultname=${tempTargets[i]}
         fi
-            
+
         if [[ ${_enc_type} == "pass" ]]; then
             while [[ ${count} -lt ${max} ]]; do
                 # Putting the _enc_options var in double quotes _will_ cause cryptsetup to fail
@@ -577,7 +576,7 @@ DecryptDrives()
 
             while [[ ${count} -lt ${max} ]]; do
                 echo "${_code}" | gpg --batch --passphrase-fd 0 -q -d "${_keyfile}" 2> /dev/null | \
-                cryptsetup --key-file=- ${_enc_options} luksOpen ${_drives[i]} ${vaultname} && break
+                    cryptsetup --key-file=- ${_enc_options} luksOpen ${_drives[i]} ${vaultname} && break
 
                 if [[ $? -ne 0 ]]; then
                     count=$((count + 1))
@@ -593,7 +592,7 @@ DecryptDrives()
             done
         fi
     done
-    
+
     unset tempTargets
 }
 
@@ -669,7 +668,7 @@ ZfsTrigger()
     # use, then attempt to mount the pool from that directory.
     if [[ ! -z ${_by} ]]; then
         PrepForSafeZfsCommand && zpool import -d "${_by}" -f -N -o cachefile= "${_pool_name}" || \
-        Fail "Failed to mount \"${_pool_name}\" from the \"${_by}\" directory."
+            Fail "Failed to mount \"${_pool_name}\" from the \"${_by}\" directory."
 
         Info "Successfully mounted \"${_pool_name}\" using the \"${_by}\" directory."
     else
@@ -708,7 +707,7 @@ MountRoot()
     # the mount command to keep going.
     if [[ ${_use_zfs} -eq 1 ]]; then
         PrepForSafeZfsCommand && mount -t zfs -o zfsutil,"${options}" "${_root}" "${_new_root}" || \
-        Fail "Failed to import your zfs root dataset!"
+            Fail "Failed to import your zfs root dataset!"
 
         if [[ ${_refresh} -eq 1 ]] || [[ ! -f "${_rootfs_cache_file}" ]]; then
             # Installs the cache generated by this initramfs run, to the rootfs.
@@ -716,7 +715,7 @@ MountRoot()
         fi
     else
         mount -o "${_options}" "${_root}" "${_new_root}" || \
-        Fail "Failed to import your rootfs: ${_root}!"
+            Fail "Failed to import your rootfs: ${_root}!"
     fi
 }
 

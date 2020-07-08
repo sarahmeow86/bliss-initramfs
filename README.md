@@ -43,10 +43,17 @@ For more information/instructions check the USAGE file.
 You can easily install Poetry on your machine and then run
 `poetry install` from the root of this repository to have
 poetry automatically create a virtual environment and install
-any Python based dependencies for the project.
+any Python based dependencies for the project (Including all
+development dependencies like `black` and `beautysh`).
 
-### Black (Code Formatting)
+### Black (Code Formatting - Python)
 
-Before submitting a patch, make sure to run `black` on the code.
-The correct `black` version should have been installed after
-having ran `poetry install`.
+If making changes to any Python code, make sure to run `black`
+on the code. The correct `black` version should have been installed
+after having ran `poetry install`.
+
+## Beautysh (Code Formatting - Bash)
+
+If making changes to any bash files (i.e files/init), please run
+`beautysh` on that file and re-test your changes. If it still works,
+you can submit your PR.
