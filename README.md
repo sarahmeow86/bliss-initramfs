@@ -38,4 +38,15 @@ For more information/instructions check the USAGE file.
 
 ## Contributions
 
+### Poetry (Virtual Environments & Dependency Management)
+
+You can easily install Poetry on your machine and then run
+`poetry install` from the root of this repository to have
+poetry automatically create a virtual environment and install
+any Python based dependencies for the project.
+
+### Black (Code Formatting)
+
 Before submitting a patch, make sure to run `black` on the code.
+The correct `black` version should have been installed after
+having ran `poetry install`.
