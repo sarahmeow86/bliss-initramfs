@@ -1,4 +1,4 @@
-## Bliss Initramfs 8.0.0
+## Bliss Initramfs 8.1.0
 #### Jonathan Vasquez (fearedbliss)
 #### Designed for Gentoo Linux
 
