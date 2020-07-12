@@ -55,7 +55,7 @@ If making changes to any Python code, make sure to run `black`
 on the code. The correct `black` version should have been installed
 after having ran `poetry install`.
 
-## Beautysh (Code Formatting - Bash)
+### Beautysh (Code Formatting - Bash)
 
 If making changes to any bash files (i.e files/init), please run
 `beautysh` on that file and re-test your changes. If it still works,
