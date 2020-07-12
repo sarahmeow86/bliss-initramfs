@@ -22,5 +22,5 @@ class Base(Hook):
         return cls._kmod_links
 
     @classmethod
-    def GetUdevPath(cls):
-        return cls._udev_path
+    def GetUdevProvider(cls):
+        return cls._udev_provider

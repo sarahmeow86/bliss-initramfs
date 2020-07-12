@@ -17,7 +17,6 @@
             "/bin/grep",
             "/usr/bin/loadkeys",
             "/bin/kmod",
-            "/lib/systemd/systemd-udevd",
             "/bin/udevadm"
         ],
         "kmodLinks": [
@@ -28,7 +27,7 @@
             "modprobe",
             "rmmod"
         ],
-        "udevPath": "/lib/systemd/systemd-udevd"
+        "udevProvider": "/lib/systemd/systemd-udevd"
     },
     "zfs": {
         "files": [
@@ -48,7 +47,6 @@
         "manFiles": [
             "/usr/share/man/man5/spl-module-parameters.5.bz2",
             "/usr/share/man/man1/zhack.1.bz2",
-            "/usr/share/man/man1/zpios.1.bz2",
             "/usr/share/man/man1/ztest.1.bz2",
             "/usr/share/man/man5/vdev_id.conf.5.bz2",
             "/usr/share/man/man5/zfs-events.5.bz2",

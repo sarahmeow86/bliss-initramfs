@@ -59,7 +59,12 @@ class Core:
         # Base
         Base._files = settings["base"]["files"]
         Base._kmod_links = settings["base"]["kmodLinks"]
-        Base._udev_path = settings["base"]["udevPath"]
+        Base._udev_provider = settings["base"]["udevProvider"]
+
+        # The udev provider is also part of the base required files. However,
+        # we are simplifying it to only one entry in the json so that if the
+        # user's provider defers, they only need to change it in one place.
+        Base.AddFile(Base.GetUdevProvider())
 
         # Modules
 
@@ -421,15 +426,15 @@ class Core:
             shutil.copytree(udev_lib_dir, temp_udev_lib_dir)
 
         # Rename udevd and place in /sbin
-        udev_path = Base.GetUdevPath()
-        systemd_dir = os.path.dirname(udev_path)
+        udev_provider = Base.GetUdevProvider()
+        systemd_dir = os.path.dirname(udev_provider)
 
         sbin_udevd = var.sbin + "/udevd"
-        udev_path_temp = var.temp + udev_path
+        udev_provider_temp = var.temp + udev_provider
 
-        if os.path.isfile(udev_path_temp) and udev_path != sbin_udevd:
-            udev_path_new = var.temp + sbin_udevd
-            os.rename(udev_path_temp, udev_path_new)
+        if os.path.isfile(udev_provider_temp) and udev_provider != sbin_udevd:
+            udev_provider_new = var.temp + sbin_udevd
+            os.rename(udev_provider_temp, udev_provider_new)
 
             temp_systemd_dir = var.temp + systemd_dir
 
