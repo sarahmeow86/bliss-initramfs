@@ -41,5 +41,4 @@ Other
 ======================
   * All other drivers required to see your PATA/SATA drives (or USB devices)
     need to be compiled in or you can compile them as a module and declare
-    them in the '_files' variable in pkg/hooks/Modules.py.
-
+    them in the modules section in "/etc/bliss-initramfs/settings.json".

@@ -18,27 +18,9 @@ from pkg.libs.Tools import Tools
 
 class Base(Hook):
     @classmethod
-    # Returns the kmod links
     def GetKmodLinks(cls):
         return cls._kmod_links
 
-    # Dependencies
-    # 1. sys-apps/busybox
-    # 2. sys-apps/kmod
-    # 3. app-shells/bash
-    # 4. sys-apps/grep
-    # 5. sys-apps/kbd
-    # 6. udev
-    _files = [
-        "/bin/busybox",
-        Tools.GetProgramPath("kmod"),
-        "/bin/bash",
-        "/bin/egrep",
-        "/bin/fgrep",
-        "/bin/grep",
-        "/usr/bin/loadkeys",
-        Tools.GetUdevPath(),
-        Tools.GetProgramPath("udevadm"),
-    ]
-
-    _kmod_links = ["depmod", "insmod", "lsmod", "modinfo", "modprobe", "rmmod"]
+    @classmethod
+    def GetUdevPath(cls):
+        return cls._udev_path

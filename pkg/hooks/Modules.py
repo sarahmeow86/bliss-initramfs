@@ -16,14 +16,4 @@ from pkg.hooks.Hook import Hook
 
 
 class Modules(Hook):
-    # A list of kernel modules to include in the initramfs
-    # Format: "module1", "module2", "module3", ...
-    _files = [
-        # Uncomment the module below if you have encryption support built as a module, rather than built into the kernel:
-        # "dm-crypt",
-        # Uncomment for NVMe support
-        # "nvme",
-        # Add your other kernel modules below
-        # "i915",
-        # "nouveau",
-    ]
+    pass

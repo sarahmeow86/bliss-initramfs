@@ -10,9 +10,13 @@ Run the script by running: ./mkinitrd
 
 Select the features that you want, and tell it which kernel you want to use.
 
-After that the required files will be gathered and packed into an initramfs and you
-will find the initramfs in the directory that you are currently in. Copy that file
-to your boot directory and name it whatever you want.
+After that the required files will be gathered and packed into an initramfs
+and you will find the initramfs in the directory that you are currently in.
+Copy that file to your boot directory and name it whatever you want.
+
+You can modify the /etc/bliss-initramfs/settings.json file to change paths of
+binaries, add modules that you want to include in the initramfs, or change
+other settings.
 
 =======================================
 Setting up the bootloader configuration (GRUB 2)
@@ -321,7 +325,10 @@ enc_targets - What /dev/mapper/TARGET_NAME to use? Comma separated list, same or
     example: linux <kernel> enc_drives=/dev/sda1,/dev/sdb1 enc_targets=crypt_sda,crypt_sdb
 
 
-LUKS passphrase/key:
+=======================================
+LUKS Passphrase/Multiple LUKS Passphrase for different drives
+=======================================
+
 The easiest way to pass the passphrase is just to wait till the initramfs
 asks you for it. When this happens, it will use the _same_ passphrase
 (or same key) for all your pools. This is to make it convenient for you.
@@ -333,15 +340,16 @@ then just leave the passphrase blank when the initramfs asks you for it.
 Modules Support
 =======================================
 
-If you have compiled some critical stuff as modules rather than them being built
-into the kernel, you can now write which modules you need in the
-pkg/hooks/Modules.py "_files" variable. The initramfs will gather the module and
-it's dependencies and put them in the initramfs for you. Then the initramfs will
-automatically load all those modules for you at boot.
+If you have compiled some critical stuff as modules rather than them being
+built into the kernel, you can now write which modules you need in the
+modules -> files section in /etc/bliss-initramfs/settings.json. The initramfs
+will gather the module and it's dependencies and put them in the initramfs
+for you. Then the initramfs will automatically load all those modules for
+you at boot.
 
 Example:
-    _files = [ "i915", "zfs", "ahci", "ext2", "ext3", "ext4", "dm-crypt",
-          "ohci-hcd", "ehci-hcd", "xhci-hcd", "usb-storage" ]
+    "files": ["i915", "zfs", "ahci", "ext2", "ext3", "ext4", "dm-crypt",
+              "ohci-hcd", "ehci-hcd", "xhci-hcd", "usb-storage"]
 
 That example basically loads the intel i915 gfx driver, zfs, ahci, ext2-4
 filesystem hdd drivers, dm-crypt for luks support driver, ohci/ehci/xhci
@@ -353,56 +361,76 @@ loaded at boot in that order.
 Firmware Support
 =======================================
 
-If you want to include firmware inside your initramfs, open up the pkg/hooks/Firmware.py file,
-enable the hook by changing the "_use" to "1" and then add the specific firmware name/path to
-the files list. If you don't want to specify a specific firmware but would rather copy all the
-firmware that's on your system, you can toggle the "_copy_all" flag by changing it to "1".
-The firmware files will be copied from your system's /lib/firmware directory. The firmware that
-you add to the "_files" list should be relative to this directory. More information can be found
-inside the hook.
+If you want to include firmware in your initramfs, open up your settings.json,
+and enable the hook by changing the "use" to 1 in the "firmware" section.
+
+You can then add the specific firmware name/path to the files list.
+
+If you want to copy all firmware that's included in a particular directory
+under the "/lib/firmware" folder (Or whatever "firmwareDirectory" is set to),
+then you can add the names of each directory you want included in the
+"directories" variable. Do not add any slashes in the beginning or ending
+of this, only the directory name that's in the root directory of the firmware
+folder is needed. (Example: "directories": ["intel", "i915", "ath10k"]).
+
+If you don't want to specify a specific firmware files/folders, but would
+rather copy all the firmware that's on your system, you can toggle the
+"copyAll" setting by changing it to 1. The firmware files will be copied
+from your system's /lib/firmware directory (Which can be modified in the
+"firmwareDirectory" setting). The firmware that you add to the "files"
+list should be relative to this directory.
 
 =======================================
 Embedded Keyfile Support
 =======================================
 
-The initramfs has the ability to embed your encrypted drive(s)'s keyfile directly into itself.
+The initramfs has the ability to embed your encrypted drive(s)'s keyfile
+directly into itself.
 
 Some of the benefits this may provide are:
 > Not having to type multiple passphrases during boot.
 > Rely on an external drive in order to decrypt the drive.
-> If using an external drive, reduce the number of files on the /boot drive (just kernel and initramfs)
+> If using an external drive, reduce the number of files on the /boot drive
+  (just kernel and initramfs)
 
-This was primarily implemented in order to reduce the number of passphrases needed to 1, when you have your
-/boot directory inside of an encrypted / partition on LUKS. You will need to have GRUB decrypt your / partition
-and once the initramfs loads, it will automatically use the embedded keyfile to decrypt the drives, and start up
-your system.
+This was primarily implemented in order to reduce the number of passphrases
+needed to 1, when you have your /boot directory inside of an encrypted /
+partition on LUKS. You will need to have GRUB decrypt your / partition and
+once the initramfs loads, it will automatically use the embedded keyfile to
+decrypt the drives, and start up your system.
 
-In order to activate this, go into pkg/hooks/Luks.py and change the "_use_keyfile" value to 1, and then
-set the "_keyfile_path" to the path on disk from where to copy your keyfile from. Once this is done,
-during initramfs generation, you will see a message that the initramfs is embedding the keyfile into itself.
+In order to activate this, go into settings.json and change the "useKeyfile"
+value to 1, and then set the "keyfilePath" to the path on disk from where to
+copy your keyfile from. Once this is done, during initramfs generation,
+you will see a message that the initramfs is embedding the keyfile into itself.
 
 In your grub command line, you will need to have the "enc_type" set to "key".
 
-When the initramfs starts up, if it detects that your initramfs has an embedded keyfile, it will
-automatically try to decrypt the drives listed in "enc_drives" and not ask you any questions.
-If you want to use some other form of decryption (passphrase, key_gpg), but you don't want to remake
-the initramfs in order to remove the keyfile out of it, use the "enc_key_ignore" kernel line option.
+When the initramfs starts up, if it detects that your initramfs has an embedded
+keyfile, it will automatically try to decrypt the drives listed in "enc_drives"
+and not ask you any questions. If you want to use some other form of decryption
+(passphrase, key_gpg), but you don't want to remake the initramfs in order to
+remove the keyfile out of it, use the "enc_key_ignore" kernel line option.
 
 =================================
 LUKS Detached Header File Support
 =================================
 
-The initramfs has the ability to embed your detached luks header directly. This has a lot of security
-benefits, the main ones being that:
+The initramfs has the ability to embed your detached luks header directly.
+This has a lot of security benefits, the main ones being that:
 
-1. Your LUKS device will look as if it was just a bunch of random data (Plausible Deniability)
-2. Your LUKS device will pretty much be impossible to decrypt with modern technological standards due
-   to the SALT no longer being on the same device as the LUKS device.
+1. Your LUKS device will look as if it was just a bunch of random data
+   (Plausible Deniability)
+2. Your LUKS device will pretty much be impossible to decrypt with modern
+   technological standards due to the SALT no longer being on the same
+device as the LUKS device.
 
-In order to activate this feature, change the "_use_detached_header" from 0 to 1 in order to enable this support.
-After you do this, you can set the path of where you want the initramfs to automatically copy that file from by
-modifying the "_detached_header_path" variable. By default, it will attempt to copy it from "/crypto_header.bin",
-and it will automatically be placed inside the initramfs as "/etc/header".
+In order to activate this feature, change the "useDetachedHeader" from 0 to 1
+in the LUKS section of settings.json in order to enable this support. After you
+do this, you can set the path of where you want the initramfs to automatically
+copy that file from by modifying the "detachedHeaderPath" setting. By default,
+it will attempt to copy it from "/crypto_header.bin", and it will automatically
+be placed inside the initramfs as "/etc/header".
 
-Once this is done, use "enc_options=--header=/etc/header" in the initramfs to tell the initramfs at boot time where
-to find the header file.
+Once this is done, use "enc_options=--header=/etc/header" in the initramfs to
+tell the initramfs at boot time where to find the header file.

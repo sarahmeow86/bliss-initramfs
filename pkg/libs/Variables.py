@@ -17,12 +17,17 @@ import subprocess
 import sys
 import random
 
+"""Defines various variables that are used internally for the application.
+
+   Variables that are meant to be exposed to the user are in settings.json.
+"""
+
 # Application Info
 name = "Bliss Initramfs"
 author = "Jonathan Vasquez"
 email = "jon@xyinn.org"
 contact = author + " <" + email + ">"
-version = "8.0.0"
+version = "8.1.0"
 license = "Apache License 2.0"
 
 # Locations
@@ -32,7 +37,7 @@ home = os.getcwd()
 kernel = ""
 modules = ""
 lmodules = ""
-initrd = "initrd"
+initrd = ""
 features = ""
 
 rstring = str(random.randint(100000000, 999999999))
@@ -49,29 +54,8 @@ phome = os.path.dirname(os.path.realpath(sys.argv[0]))
 # Files Directory
 files_dir = phome + "/files"
 
-# System Directories
-bin = "/bin"
-sbin = "/sbin"
-lib = "/lib"
-lib64 = "/lib64"
-etc = "/etc"
-
-# Paths in Temp (Local)
-lbin = temp + bin
-lsbin = temp + sbin
-llib = temp + lib
-llib64 = temp + lib64
-letc = temp + etc
-
 # CPU Architecture
 arch = subprocess.check_output(["uname", "-m"], universal_newlines=True).strip()
-
-# Preliminary binaries needed for the success of creating the initrd
-# but that are not needed to be placed inside the initrd
-prel_bin = ["/bin/cpio", "/sbin/depmod"]
-
-# Firmware directory
-firmwareDirectory = "/lib/firmware/"
 
 # Layout of the initramfs
 baselayout = [
@@ -93,3 +77,24 @@ baselayout = [
     temp + "/root",
     temp + "/run",
 ]
+
+# Temporary Directories (Dynamically Retrieved) since we need
+# to first load all of our variables from our settings.json
+def GetTempBinDir():
+    return temp + bin
+
+
+def GetTempSbinDir():
+    return temp + sbin
+
+
+def GetTempLibDir():
+    return temp + lib
+
+
+def GetTempLib64Dir():
+    return temp + lib64
+
+
+def GetTempEtcDir():
+    return temp + etc

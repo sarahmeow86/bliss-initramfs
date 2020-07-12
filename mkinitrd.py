@@ -30,6 +30,7 @@ class Main:
         Tools.ProcessArguments(Modules)
         call(["clear"])
         Tools.PrintHeader()
+        Core.LoadSettings()
         Core.PrintMenuAndGetDesiredFeatures()
 
         if var.kernel or Modules.GetFiles():

@@ -23,14 +23,17 @@ from subprocess import CalledProcessError
 import pkg.libs.Variables as var
 
 from pkg.libs.Tools import Tools
+
 from pkg.hooks.Base import Base
 from pkg.hooks.Luks import Luks
 from pkg.hooks.Zfs import Zfs
 from pkg.hooks.Modules import Modules
 from pkg.hooks.Firmware import Firmware
 
-# Contains the core of the application
+
 class Core:
+    """Contains the core of the application"""
+
     # List of binaries (That will be 'ldd'ed later)
     _binset = set()
 
@@ -45,8 +48,109 @@ class Core:
     Modules.Enable()
 
     @classmethod
-    # Prints the menu and accepts user features
+    def LoadSettings(cls):
+        """Loads all of the settings from the json file into the Hooks."""
+
+        # This approach was taken since it was the easiest / cleanest
+        # implementation in terms of keeping the application references
+        # mostly the same, but still being able to load the external info.
+        settings = Tools.LoadSettings()
+
+        # Base
+        Base._files = settings["base"]["files"]
+        Base._kmod_links = settings["base"]["kmodLinks"]
+        Base._udev_path = settings["base"]["udevPath"]
+
+        # Modules
+
+        # A list of kernel modules to include in the initramfs
+        # Format: "module1", "module2", "module3", ...
+
+        # Example: To enable built in encryption support, nvme, i915,
+        # you would have the following modules in your settings.json:
+        # ["dm-crypt", "nvme", "i915"]
+        Modules._files = settings["modules"]["files"]
+
+        # ZFS
+
+        # Required Files
+        Zfs._files = settings["zfs"]["files"]
+
+        # Optional Files. Will not fail if we fail to copy them.
+        Zfs._optional_files = settings["zfs"]["optionalFiles"]
+
+        # Man Pages. Not used for actual initramfs environment
+        # since the initramfs doesn't have the applications required to
+        # display these man pages without increasing the size a lot. However,
+        # these are used by the 'sysresccd-moddat' scripts to generate
+        # the sysresccd + zfs isos.
+        # Should we copy the man pages?
+        Zfs._use_man = settings["zfs"]["useMan"]
+
+        # Note: Portage allows one to change the compression type with
+        # PORTAGE_COMPRESS. In this situation, these files will have
+        # a different extension. The user should adjust these if needed.
+        Zfs._man = settings["zfs"]["manFiles"]
+
+        # LUKS
+
+        # Should we embed our keyfile into the initramfs?
+        Luks._use_keyfile = settings["luks"]["useKeyfile"]
+
+        # Path to the keyfile you would like to embedded directly into the initramfs.
+        # This should be a non-encrypted keyfile since it will be used to automate
+        # the decryption of your / pool (when your /boot is also on /).
+        Luks._keyfile_path = settings["luks"]["keyfilePath"]
+
+        # Should we embed our LUKS header into the initramfs?
+        Luks._use_detached_header = settings["luks"]["useDetachedHeader"]
+
+        # Path to the LUKS header you would like to embedded directly into the initramfs.
+        Luks._detached_header_path = settings["luks"]["detachedHeaderPath"]
+
+        # The "/sbin/dmsetup" required binary is used for udev cookie release
+        # when cryptsetup announces udev support and attempts to decrypt the
+        # drive. Without this, the cryptsetup will lock up and stay at
+        # "waiting for zero"
+        Luks._files = settings["luks"]["files"]
+
+        # Firmware
+
+        # Copy firmware?
+        Firmware._use = settings["firmware"]["use"]
+
+        # If enabled, all the firmware in /lib/firmware will be copied into the initramfs.
+        # If you know exactly what firmware files you want, definitely leave this at 0 so
+        # to reduce the initramfs size.
+        Firmware._copy_all = settings["firmware"]["copyAll"]
+
+        # A list of firmware files to include in the initramfs
+        Firmware._files = settings["firmware"]["files"]
+
+        # A list of firmware directories to include in the initramfs
+        Firmware._directories = settings["firmware"]["directories"]
+
+        # Variables
+        var.bin = settings["systemDirectory"]["bin"]
+        var.sbin = settings["systemDirectory"]["sbin"]
+        var.lib = settings["systemDirectory"]["lib"]
+        var.lib64 = settings["systemDirectory"]["lib64"]
+        var.etc = settings["systemDirectory"]["etc"]
+
+        # Preliminary binaries needed for the success of creating the initrd
+        # but that are not needed to be placed inside the initrd
+        var.preliminaryBinaries = settings["preliminaryBuildBinaries"]
+
+        var.modulesDirectory = settings["modulesDirectory"]
+        var.firmwareDirectory = settings["firmwareDirectory"]
+        var.initrdPrefix = settings["initrdPrefix"]
+        var.udevConfigDirectory = settings["udevConfigDirectory"]
+        var.udevLibDirectory = settings["udevLibDirectory"]
+        var.modprobeDirectory = settings["modprobeDirectory"]
+
+    @classmethod
     def PrintMenuAndGetDesiredFeatures(cls):
+        """Prints the menu and accepts user features."""
         # If the user didn't pass their desired features through the command
         # line, then ask them which initramfs they would like to generate.
         if not var.features:
@@ -81,9 +185,9 @@ class Core:
                 Tools.Warn("Invalid Option. Exiting.")
                 quit(1)
 
-    # Returns the name equivalent list of a numbered list of features
     @classmethod
     def ConvertNumberedFeaturesToNamedList(cls, numbered_feature_list):
+        """Returns the name equivalent list of a numbered list of features."""
         named_features = []
 
         try:
@@ -96,17 +200,17 @@ class Core:
 
         return named_features
 
-    # Creates the base directory structure
     @classmethod
     def CreateBaselayout(cls):
+        """Creates the base directory structure."""
         Tools.Info("Creating temporary directory at " + var.temp + " ...")
 
         for dir in var.baselayout:
             call(["mkdir", "-p", dir])
 
-    # Ask the user if they want to use their current kernel, or another one
     @classmethod
     def GetDesiredKernel(cls):
+        """Ask the user if they want to use their current kernel, or another one."""
         if not var.kernel:
             current_kernel = check_output(
                 ["uname", "-r"], universal_newlines=True
@@ -130,38 +234,38 @@ class Core:
                 Tools.Fail("Invalid Option. Exiting.")
 
         # Set modules path to correct location and sets kernel name for initramfs
-        var.modules = "/lib/modules/" + var.kernel + "/"
+        var.modules = var.modulesDirectory + "/" + var.kernel + "/"
         var.lmodules = var.temp + "/" + var.modules
-        var.initrd = "initrd-" + var.kernel
+        var.initrd = var.initrdPrefix + var.kernel
 
         # Check modules directory
         cls.VerifyModulesDirectory()
 
-    # Check to make sure the kernel modules directory exists
     @classmethod
     def VerifyModulesDirectory(cls):
+        """Check to make sure the kernel modules directory exists."""
         if not os.path.exists(var.modules):
             Tools.Fail("The modules directory for " + var.modules + " doesn't exist!")
 
-    # Make sure that the arch is x86_64
     @classmethod
     def VerifySupportedArchitecture(cls):
+        """Checks to see that the architecture is supported."""
         if var.arch != "x86_64":
             Tools.Fail("Your architecture isn't supported. Exiting.")
 
-    # Checks to see if the preliminary binaries exist
     @classmethod
     def VerifyPreliminaryBinaries(cls):
+        """Checks to see if the preliminary binaries exist."""
         Tools.Info("Checking preliminary binaries ...")
 
         # If the required binaries don't exist, then exit
-        for binary in var.prel_bin:
+        for binary in var.preliminaryBinaries:
             if not os.path.isfile(Tools.GetProgramPath(binary)):
                 Tools.BinaryDoesntExist(binary)
 
-    # Generates the modprobe information
     @classmethod
     def GenerateModprobeInfo(cls):
+        """Generates the modprobe information."""
         Tools.Info("Generating modprobe information ...")
 
         # Copy modules.order and modules.builtin just so depmod doesn't spit out warnings. -_-
@@ -175,38 +279,62 @@ class Core:
                 "Depmod was unable to refresh the dependency information for your initramfs!"
             )
 
-    # Copies the firmware files if necessary
     @classmethod
     def CopyFirmware(cls):
+        """Copies the firmware files/directories if necessary."""
         if Firmware.IsEnabled():
             Tools.Info("Copying firmware...")
 
-            if os.path.isdir("/lib/firmware/"):
+            if os.path.isdir(var.firmwareDirectory):
                 if Firmware.IsCopyAllEnabled():
-                    shutil.copytree("/lib/firmware/", var.temp + "/lib/firmware/")
+                    shutil.copytree(
+                        var.firmwareDirectory, var.temp + var.firmwareDirectory
+                    )
                 else:
-                    # Copy the firmware in the files list
+                    # Copy the firmware files
                     if Firmware.GetFiles():
                         try:
                             for fw in Firmware.GetFiles():
                                 Tools.Copy(fw, directoryPrefix=var.firmwareDirectory)
                         except FileNotFoundError:
                             Tools.Warn(
-                                "An error occured while copying the following firmware: "
-                                + fw
+                                "An error occurred while copying the following firmware file: {}".format(
+                                    fw
+                                )
                             )
-                    else:
-                        Tools.Warn("No firmware files were found in the firmware list!")
-            else:
-                Tools.Fail("The /lib/firmware/ directory does not exist")
 
-    # Create the required symlinks
+                    # Copy the firmware directories
+                    if Firmware.GetDirectories():
+                        try:
+                            for fw in Firmware.GetDirectories():
+                                sourceFirmwareDirectory = os.path.join(
+                                    var.firmwareDirectory, fw
+                                )
+                                targetFirmwareDirectory = (
+                                    var.temp + sourceFirmwareDirectory
+                                )
+                                shutil.copytree(
+                                    sourceFirmwareDirectory, targetFirmwareDirectory
+                                )
+                        except FileNotFoundError:
+                            Tools.Warn(
+                                "An error occurred while copying the following directory: {}".format(
+                                    fw
+                                )
+                            )
+
+            else:
+                Tools.Fail(
+                    "The {} directory does not exist".format(var.firmwareDirectory)
+                )
+
     @classmethod
     def CreateLinks(cls):
+        """Create the required symlinks."""
         Tools.Info("Creating symlinks ...")
 
         # Needs to be from this directory so that the links are relative
-        os.chdir(var.lbin)
+        os.chdir(var.GetTempBinDir())
 
         # Create busybox links
         cmd = (
@@ -225,37 +353,37 @@ class Core:
 
         # Switch to the kmod directory, delete the corresponding busybox
         # symlink and create the symlinks pointing to kmod
-        if os.path.isfile(var.lsbin + "/kmod"):
-            os.chdir(var.lsbin)
-        elif os.path.isfile(var.lbin + "/kmod"):
-            os.chdir(var.lbin)
+        if os.path.isfile(var.GetTempSbinDir() + "/kmod"):
+            os.chdir(var.GetTempSbinDir())
+        elif os.path.isfile(var.GetTempBinDir() + "/kmod"):
+            os.chdir(var.GetTempBinDir())
 
         for link in Base.GetKmodLinks():
             os.remove(var.temp + "/bin/" + link)
             os.symlink("kmod", link)
 
-    # Creates symlinks from library files found in each /usr/lib## dir to the /lib[32/64] directories
     @classmethod
     def CreateLibraryLinks(cls):
+        """Creates symlinks from library files found in each /usr/lib## dir to the /lib[32/64] directories."""
         if os.path.isdir(var.temp + "/usr/lib") and os.path.isdir(var.temp + "/lib64"):
-            cls.FindAndCreateLinks("/usr/lib/", "/lib64")
+            cls._FindAndCreateLinks("/usr/lib/", "/lib64")
 
         if os.path.isdir(var.temp + "/usr/lib32") and os.path.isdir(
             var.temp + "/lib32"
         ):
-            cls.FindAndCreateLinks("/usr/lib32/", "/lib32")
+            cls._FindAndCreateLinks("/usr/lib32/", "/lib32")
 
         if os.path.isdir(var.temp + "/usr/lib64") and os.path.isdir(
             var.temp + "/lib64"
         ):
-            cls.FindAndCreateLinks("/usr/lib64/", "/lib64")
+            cls._FindAndCreateLinks("/usr/lib64/", "/lib64")
 
         # Create links to libraries found within /lib itself
         if os.path.isdir(var.temp + "/lib") and os.path.isdir(var.temp + "/lib"):
-            cls.FindAndCreateLinks("/lib/", "/lib")
+            cls._FindAndCreateLinks("/lib/", "/lib")
 
     @classmethod
-    def FindAndCreateLinks(cls, sourceDirectory, targetDirectory):
+    def _FindAndCreateLinks(cls, sourceDirectory, targetDirectory):
         pcmd = (
             "find "
             + sourceDirectory
@@ -276,24 +404,24 @@ class Core:
         cmd = f'chroot {var.temp} /bin/busybox sh -c "{pcmd}"'
         call(cmd, shell=True)
 
-    # Copies udev and files that udev uses, like /etc/udev/*, /lib/udev/*, etc
     @classmethod
     def CopyUdevAndSupportFiles(cls):
+        """Copies udev and files that udev uses, like /etc/udev/*, /lib/udev/*, etc."""
         # Copy all of the udev files
-        udev_conf_dir = "/etc/udev/"
+        udev_conf_dir = var.udevConfigDirectory
         temp_udev_conf_dir = var.temp + udev_conf_dir
 
         if os.path.isdir(udev_conf_dir):
             shutil.copytree(udev_conf_dir, temp_udev_conf_dir)
 
-        udev_lib_dir = "/lib/udev/"
+        udev_lib_dir = var.udevLibDirectory
         temp_udev_lib_dir = var.temp + udev_lib_dir
 
         if os.path.isdir(udev_lib_dir):
             shutil.copytree(udev_lib_dir, temp_udev_lib_dir)
 
         # Rename udevd and place in /sbin
-        udev_path = Tools.GetUdevPath()
+        udev_path = Base.GetUdevPath()
         systemd_dir = os.path.dirname(udev_path)
 
         sbin_udevd = var.sbin + "/udevd"
@@ -313,9 +441,9 @@ class Core:
             if not os.listdir(temp_systemd_dir):
                 os.rmdir(temp_systemd_dir)
 
-    # Dumps the current system's keymap
     @classmethod
     def DumpSystemKeymap(cls):
+        """Dumps the current system's keymap."""
         pathToKeymap = var.temp + "/etc/keymap"
         result = call("dumpkeys > " + pathToKeymap, shell=True)
 
@@ -324,10 +452,11 @@ class Core:
                 "There was an error dumping the system's current keymap. Ignoring."
             )
 
-    # This functions does any last minute steps like copying zfs.conf,
-    # giving init execute permissions, setting up symlinks, etc
     @classmethod
     def LastSteps(cls):
+        """Performes any last minute steps like copying zfs.conf,
+           giving init execute permissions, setting up symlinks, etc.
+        """
         Tools.Info("Performing finishing steps ...")
 
         # Create mtab file
@@ -352,8 +481,8 @@ class Core:
         call(cmd, shell=True)
 
         # Copy all of the modprobe configurations
-        if os.path.isdir("/etc/modprobe.d/"):
-            shutil.copytree("/etc/modprobe.d/", var.temp + "/etc/modprobe.d/")
+        if os.path.isdir(var.modprobeDirectory):
+            shutil.copytree(var.modprobeDirectory, var.temp + var.modprobeDirectory)
 
         cls.CopyUdevAndSupportFiles()
         cls.DumpSystemKeymap()
@@ -380,29 +509,29 @@ class Core:
 
         cls.CopyLibGccLibrary()
 
-    # Copy the 'libgcc' library so that when libpthreads loads it during runtime.
-    # https://github.com/zfsonlinux/zfs/issues/4749
     @classmethod
     def CopyLibGccLibrary(cls):
+        """Copy the 'libgcc' library so that when libpthreads loads it during runtime."""
+        # https://github.com/zfsonlinux/zfs/issues/4749.
+
         # Find the correct path for libgcc
-        libgcc_filename = "libgcc_s.so"
-        libgcc_filename_main = libgcc_filename + ".1"
+        libgccFilename = "libgcc_s.so"
+        libgccFilenameMain = libgccFilename + ".1"
 
         # check for gcc-config
-        cmd = 'whereis gcc-config | cut -d " " -f 2'
-        res = Tools.Run(cmd)
+        gccConfigPath = Tools.GetProgramPath("gcc-config")
 
-        if res:
+        if gccConfigPath:
             # Try gcc-config
             cmd = "gcc-config -L | cut -d ':' -f 1"
             res = Tools.Run(cmd)
 
             if res:
                 # Use path from gcc-config
-                libgcc_path = res[0] + "/" + libgcc_filename_main
-                Tools.SafeCopy(libgcc_path, var.llib64)
-                os.chdir(var.llib64)
-                os.symlink(libgcc_filename_main, libgcc_filename)
+                libgccPath = res[0] + "/" + libgccFilenameMain
+                Tools.SafeCopy(libgccPath, var.GetTempLib64Dir())
+                os.chdir(var.GetTempLib64Dir())
+                os.symlink(libgccFilenameMain, libgccFilename)
                 return
 
         # Doing a 'whereis <name of libgcc library>' will not work because it seems
@@ -416,9 +545,9 @@ class Core:
         # If we've reached this point, we have failed to copy the gcc library.
         Tools.Fail("Unable to retrieve the gcc library path!")
 
-    # Create the initramfs
     @classmethod
     def CreateInitramfs(cls):
+        """Create the initramfs."""
         Tools.Info("Creating the initramfs ...")
 
         # The find command must use the `find .` and not `find ${T}`
@@ -439,9 +568,9 @@ class Core:
         if not os.path.isfile(var.home + "/" + var.initrd):
             Tools.Fail("Error creating the initramfs. Exiting.")
 
-    # Checks to see if the binaries exist, if not then emerge
     @classmethod
     def VerifyBinaries(cls):
+        """Checks to see if the binaries exist, if not then emerge."""
         Tools.Info("Checking required files ...")
 
         # Check required base files
@@ -457,16 +586,16 @@ class Core:
             Tools.Flag("Using ZFS")
             cls.VerifyBinariesExist(Zfs.GetFiles())
 
-    # Checks to see that all the binaries in the array exist and errors if they don't
     @classmethod
     def VerifyBinariesExist(cls, vFiles):
+        """Checks to see that all the binaries in the array exist and errors if they don't."""
         for file in vFiles:
             if not os.path.exists(file):
                 Tools.BinaryDoesntExist(file)
 
-    # Copies the required files into the initramfs
     @classmethod
     def CopyBinaries(cls):
+        """Copies the required files into the initramfs."""
         Tools.Info("Copying binaries ...")
 
         cls.FilterAndInstall(Base.GetFiles())
@@ -478,27 +607,31 @@ class Core:
             cls.FilterAndInstall(Zfs.GetFiles())
             cls.FilterAndInstall(Zfs.GetOptionalFiles(), dontFail=True)
 
-    # Copies the man pages (driver)
     @classmethod
     def CopyManPages(cls):
+        """Copies the man pages."""
         if Zfs.IsEnabled() and Zfs.IsManEnabled():
             Tools.Info("Copying man pages ...")
             cls.CopyMan(Zfs.GetManPages())
 
-    # Depending the ZFS version that the user is running,
-    # some manual pages that the initramfs wants to copy might not
-    # have yet been written. Therefore, attempt to copy the man pages,
-    # but if we are unable to copy, then just continue.
     @classmethod
     def CopyMan(cls, files):
+        """Safely copies man pages if available. Will not fail."""
+
+        # Depending the ZFS version that the user is running,
+        # some manual pages that the initramfs wants to copy might not
+        # have yet been written. Therefore, attempt to copy the man pages,
+        # but if we are unable to copy, then just continue.
         for f in files:
             Tools.Copy(f, dontFail=True)
 
-    # Filters and installs each file in the array into the initramfs
-    # Optional Args:
-    #   dontFail - Same description as the one in Tools.Copy
     @classmethod
     def FilterAndInstall(cls, vFiles, **optionalArgs):
+        """Filters and installs each file in the array into the initramfs.
+
+            Optional Args:
+                dontFail - Same description as the one in Tools.Copy.
+        """
         for file in vFiles:
             # If the application is a binary, add it to our binary set. If the application is not
             # a binary, then we will get a CalledProcessError because the output will be null.
@@ -515,9 +648,9 @@ class Core:
             # Copy the file into the initramfs
             Tools.Copy(file, dontFail=optionalArgs.get("dontFail", False))
 
-    # Copy modules and their dependencies
     @classmethod
     def CopyModules(cls):
+        """Copy modules and their dependencies."""
         moddeps = set()
 
         # Build the list of module dependencies
@@ -583,9 +716,9 @@ class Core:
             # Update module dependency database inside the initramfs
             cls.GenerateModprobeInfo()
 
-    # Gets the library dependencies for all our binaries and copies them into our initramfs.
     @classmethod
     def CopyDependencies(cls):
+        """Gets the library dependencies for all our binaries and copies them into our initramfs."""
         Tools.Info("Copying library dependencies ...")
 
         bindeps = set()

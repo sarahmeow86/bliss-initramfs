@@ -22,17 +22,20 @@ Released under the Apache License 2.0
 
 Please have the following installed:
 
+### Required Dependencies
 - dev-lang/python 3.6+
 - app-arch/cpio
 - app-shells/bash
 - sys-apps/kmod
 - sys-apps/grep
+- app-arch/gzip (initramfs compression)
+- sys-fs/zfs (ZFS support)
 - sys-fs/udev OR sys-fs/eudev OR sys-apps/systemd (UUIDs, Labels, etc)
 - sys-apps/kbd (Keymap support)
-- sys-fs/zfs (ZFS support)
+
+### Only required if you need encryption
 - sys-fs/cryptsetup (LUKS support)
 - app-crypt/gnupg (GPG Encrypted Keyfile used for LUKS)
-- app-arch/gzip (initramfs compression)
 
 For more information/instructions check the USAGE file.
 

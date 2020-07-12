@@ -16,47 +16,22 @@ from pkg.hooks.Hook import Hook
 
 
 class Luks(Hook):
-    # Should we embed our keyfile into the initramfs?
-    _use_keyfile = 0
-
-    # Path to the keyfile you would like to embedded directly into the initramfs.
-    # This should be a non-encrypted keyfile since it will be used to automate
-    # the decryption of your / pool (when your /boot is also on /).
-    _keyfile_path = "/crypto_keyfile.bin"
-
-    # Should we embed our LUKS header into the initramfs?
-    _use_detached_header = 0
-
-    # Path to the LUKS header you would like to embedded directly into the initramfs.
-    _detached_header_path = "/crypto_header.bin"
-
-    # Required Files
-    _files = [
-        "/sbin/cryptsetup",
-        "/usr/bin/gpg",
-        "/usr/bin/gpg-agent",
-        # Used for udev cookie release when cryptsetup announces udev support
-        # and attempts to decrypt the drive. Without this, the cryptsetup will lock up
-        # and stay at "waiting for zero"
-        "/sbin/dmsetup",
-    ]
-
-    # Is embedding the keyfile enabled?
     @classmethod
     def IsKeyfileEnabled(cls):
+        """Returns if we should embed the keyfile into the initramfs."""
         return cls._use_keyfile
 
-    # Return the keyfile path
     @classmethod
     def GetKeyfilePath(cls):
+        """Returns the Keyfile Path."""
         return cls._keyfile_path
 
-    # Is embedding the LUKS header enabled?
     @classmethod
     def IsDetachedHeaderEnabled(cls):
+        """Returns if we should embed the LUKS header into the initramfs."""
         return cls._use_detached_header
 
-    # Return the LUKS header path
     @classmethod
     def GetDetachedHeaderPath(cls):
+        """Return the LUKS header path."""
         return cls._detached_header_path

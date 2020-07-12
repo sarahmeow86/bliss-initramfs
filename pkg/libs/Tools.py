@@ -15,6 +15,7 @@
 import os
 import shutil
 import sys
+import json
 
 import pkg.libs.Variables as var
 
@@ -23,6 +24,8 @@ from subprocess import check_output
 
 
 class Tools:
+    """Contains various tools/utilities that are used throughout the app."""
+
     # Available Features
     _features = {1: "ZFS", 2: "LUKS", 3: "Basic"}
 
@@ -50,9 +53,9 @@ class Tools:
             var.features = arguments[0]
             var.kernel = arguments[1]
 
-    # Prints the header of the application
     @classmethod
     def PrintHeader(cls):
+        """Prints the header of the application."""
         print("-" * 30)
         Tools.Print(
             Tools.Colorize("yellow", var.name)
@@ -63,9 +66,9 @@ class Tools:
         Tools.Print(var.license)
         print("-" * 30 + "\n")
 
-    # Prints the available options
     @classmethod
     def PrintFeatures(cls):
+        """Prints the available options."""
         cls.NewLine()
 
         for feature in cls._features:
@@ -73,9 +76,9 @@ class Tools:
 
         cls.NewLine()
 
-    # Finds the path to a program on the system
     @classmethod
     def GetProgramPath(cls, vProg):
+        """Finds the path to a program on the system."""
         cmd = "whereis " + vProg + ' | cut -d " " -f 2'
         results = check_output(cmd, shell=True, universal_newlines=True).strip()
 
@@ -84,25 +87,11 @@ class Tools:
         else:
             cls.Fail("The " + vProg + " program could not be found!")
 
-    # Returns the path to udev
-    @classmethod
-    def GetUdevPath(cls):
-        udev_paths = [
-            "/usr/lib/systemd/systemd-udevd",
-            "/lib/systemd/systemd-udevd",
-            "/sbin/udevd",
-        ]
-
-        for path in udev_paths:
-            if os.path.exists(path) and os.path.isfile(path):
-                return path
-
-        cls.Fail("udev was not found on the system!")
-
-    # Check to see if the temporary directory exists, if it does,
-    # delete it for a fresh start
     @classmethod
     def Clean(cls):
+        """Check to see if the temporary directory exists, if it does,
+           delete it for a fresh start.
+        """
         # Go back to the original working directory so that we are
         # completely sure that there will be no inteference cleaning up.
         os.chdir(var.home)
@@ -115,19 +104,21 @@ class Tools:
                 cls.Warn("Failed to delete the " + var.temp + " directory. Exiting.")
                 quit(1)
 
-    # Clean up and exit after a successful build
     @classmethod
     def CleanAndExit(cls, vInitrd):
+        """Clean up and exit after a successful build."""
         cls.Clean()
         cls.Info('Please copy "' + vInitrd + '" to your ' + "/boot directory")
         quit()
 
-    # Intelligently copies the file into the initramfs
-    # Optional Args:
-    #   directoryPrefix = Prefix that we should add when constructing the file path
-    #   dontFail = If the file wasn't able to be copied, do not fail.
     @classmethod
     def Copy(cls, vFile, **optionalArgs):
+        """ Intelligently copies the file into the initramfs
+
+            Optional Args:
+               directoryPrefix = Prefix that we should add when constructing the file path
+               dontFail = If the file wasn't able to be copied, do not fail.
+        """
         # NOTE: shutil.copy will dereference all symlinks before copying.
 
         # If a prefix was passed into the function as an optional argument
@@ -169,9 +160,9 @@ class Tools:
             else:
                 cls.Fail(message)
 
-    # Copies a file to a target path and checks to see that it exists
     @classmethod
     def SafeCopy(cls, sourceFile, targetDest, *desiredName):
+        """Copies a file to a target path and checks to see that it exists."""
         if len(desiredName) == 0:
             splitResults = sourceFile.split("/")
             lastPosition = len(splitResults)
@@ -189,10 +180,11 @@ class Tools:
         else:
             Tools.Fail("The source file doesn't exist: " + sourceFile)
 
-    # Copies and verifies that a configuration file exists, and if not,
-    # warns the user that the default settings will be used.
     @classmethod
     def CopyConfigOrWarn(cls, targetConfig):
+        """Copies and verifies that a configuration file exists, and if not,
+           warns the user that the default settings will be used.
+        """
         if os.path.isfile(targetConfig):
             Tools.Flag("Copying " + targetConfig + " from the current system...")
             Tools.Copy(targetConfig)
@@ -202,9 +194,9 @@ class Tools:
                 + " was not detected on this system. The default settings will be used."
             )
 
-    # Runs a shell command and returns its output
     @classmethod
     def Run(cls, command):
+        """Runs a shell command and returns its output."""
         try:
             return (
                 check_output(command, universal_newlines=True, shell=True)
@@ -216,11 +208,22 @@ class Tools:
                 "An error occured while processing the following command: " + command
             )
 
+    @classmethod
+    def LoadSettings(cls):
+        """Loads the settings.json file and returns it."""
+        settingsFile = "/etc/bliss-initramfs/settings.json"
+
+        if not os.path.exists(settingsFile):
+            Tools.Fail(settingsFile + " doesn't exist.")
+
+        with open(settingsFile) as settings:
+            return json.load(settings)
+
     ####### Message Functions #######
 
-    # Returns the string with a color to be used in bash
     @classmethod
     def Colorize(cls, vColor, vMessage):
+        """Returns the string with a color to be used in bash."""
         if vColor == "red":
             coloredMessage = "\e[1;31m" + vMessage + "\e[0;m"
         elif vColor == "yellow":
@@ -240,55 +243,55 @@ class Tools:
 
         return coloredMessage
 
-    # Prints a message through the shell
     @classmethod
     def Print(cls, vMessage):
+        """Prints a message through the shell."""
         call(["echo", "-e", vMessage])
 
-    # Used for displaying information
     @classmethod
     def Info(cls, vMessage):
+        """Used for displaying information."""
         call(["echo", "-e", cls.Colorize("green", "[*] ") + vMessage])
 
-    # Used for input (questions)
     @classmethod
     def Question(cls, vQuestion):
+        """ Used for input (questions)."""
         return input(vQuestion)
 
-    # Used for warnings
     @classmethod
     def Warn(cls, vMessage):
+        """Used for warnings."""
         call(["echo", "-e", cls.Colorize("yellow", "[!] ") + vMessage])
 
-    # Used for flags (aka using zfs, luks, etc)
     @classmethod
     def Flag(cls, vFlag):
+        """Used for flags (aka using zfs, luks, etc)."""
         call(["echo", "-e", cls.Colorize("purple", "[+] ") + vFlag])
 
-    # Used for options
     @classmethod
     def Option(cls, vOption):
+        """Used for options."""
         call(["echo", "-e", cls.Colorize("cyan", "[>] ") + vOption])
 
-    # Used for errors
     @classmethod
     def Fail(cls, vMessage):
+        """Used for errors."""
         cls.Print(cls.Colorize("red", "[#] ") + vMessage)
         cls.NewLine()
         cls.Clean()
         quit(1)
 
-    # Prints empty line
     @classmethod
     def NewLine(cls):
+        """Prints empty line."""
         print("")
 
-    # Error Function: Binary doesn't exist
     @classmethod
     def BinaryDoesntExist(cls, vMessage):
+        """Error Function: Binary doesn't exist."""
         cls.Fail("Binary: " + vMessage + " doesn't exist. Exiting.")
 
-    # Error Function: Module doesn't exist
     @classmethod
     def ModuleDoesntExist(cls, vMessage):
+        """Error Function: Module doesn't exist."""
         cls.Fail("Module: " + vMessage + " doesn't exist. Exiting.")

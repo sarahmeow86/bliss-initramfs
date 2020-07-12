@@ -20,68 +20,74 @@ class Hook:
     _use_man = 0
     _files = []
     _optional_files = []
+    _directories = []
     _man = []
 
-    # Enables the use value
     @classmethod
     def Enable(cls):
+        """Enables this hook."""
         cls._use = 1
 
-    # Disables the use value
     @classmethod
     def Disable(cls):
+        """Disables this hook."""
         cls._use = 0
 
-    # Enables copying the man pages
     @classmethod
     def EnableMan(cls):
+        """Enables copying the man pages."""
         cls._use_man = 1
 
-    # Enables copying the man pages
     @classmethod
     def DisableMan(cls):
+        """Disables copying the man pages."""
         cls._use_man = 0
 
-    # Gets the use value
     @classmethod
     def IsEnabled(cls):
+        """Returns whether this hook is activated."""
         return cls._use
 
-    # Gets the copy man pages value
     @classmethod
     def IsManEnabled(cls):
+        """Returns whether man pages will be copied."""
         return cls._use_man
 
-    # Adds a file to the list
     @classmethod
     def AddFile(cls, vFile):
+        """Adds a required file to the hook to be copied into the initramfs."""
         cls._files.append(vFile)
 
-    # Deletes a file from the list
     @classmethod
     def RemoveFile(cls, vFile):
+        """Deletes a required file from the hook."""
         try:
             cls._files.remove(vFile)
         except ValueError:
             Tools.Fail('The file "' + vFile + '" was not found on the list!')
 
-    # Prints the files in the list
     @classmethod
     def PrintFiles(cls):
+        """Prints the required files in this hook."""
         for file in cls.GetFiles():
             print("File: " + file)
 
-    # Returns the list of required files
     @classmethod
     def GetFiles(cls):
+        """Returns the list of required files."""
         return cls._files
 
-    # Returns the list of optional files
     @classmethod
     def GetOptionalFiles(cls):
+        """Returns the list of optional files."""
         return cls._optional_files
 
-    # Returns the list of manuals
+    @classmethod
+    def GetDirectories(cls):
+        """Returns the list of required directories."""
+        return cls._directories
+
     @classmethod
     def GetManPages(cls):
+        """Returns the list of man page files for this hook."""
         return cls._man
