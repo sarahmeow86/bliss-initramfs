@@ -14,8 +14,8 @@
 
 import os
 import shutil
-import sys
 import json
+import argparse
 
 import pkg.libs.Variables as var
 
@@ -32,26 +32,40 @@ class Tools:
     # Checks parameters and running user
     @classmethod
     def ProcessArguments(cls, Modules):
-        user = check_output(["whoami"], universal_newlines=True).strip()
+        user = Tools.Run("whoami")[0]
 
         if user != "root":
             cls.Fail("This program must be ran as root")
 
-        arguments = sys.argv[1:]
+        parser = argparse.ArgumentParser(
+            description="Builds an initramfs for booting from OpenZFS."
+        )
+        parser.add_argument(
+            "-c",
+            "--config",
+            help="Path to the settings.json. (i.e: /home/jon/settings.json)",
+        )
+        parser.add_argument(
+            "-f",
+            "--features",
+            help="Comma delimited list of features you want [Available: zfs, luks, basic]. (i.e: zfs,luks)",
+        )
+        parser.add_argument(
+            "-k",
+            "--kernel",
+            help="The name of the kernel you are building the initramfs for. (i.e: 4.14.170-FC.01)",
+        )
 
-        # Let the user directly create an initramfs if no modules are needed
-        if len(arguments) == 1:
-            if not Modules.GetFiles():
-                var.features = arguments[0]
-            else:
-                cls.Fail(
-                    "You must pass a kernel parameter in order to retrieve the required kernel modules"
-                )
+        args = parser.parse_args()
 
-        # If there are two parameters then we will use them, else just ignore them
-        elif len(arguments) == 2:
-            var.features = arguments[0]
-            var.kernel = arguments[1]
+        if args.config:
+            var.settingsPath = args.config
+
+        if args.kernel:
+            var.kernel = args.kernel
+
+        if args.features:
+            var.features = args.features
 
     @classmethod
     def PrintHeader(cls):
@@ -211,7 +225,11 @@ class Tools:
     @classmethod
     def LoadSettings(cls):
         """Loads the settings.json file and returns it."""
-        settingsFile = "/etc/bliss-initramfs/settings.json"
+        settingsFile = (
+            var.settingsPath
+            if var.settingsPath
+            else "/etc/bliss-initramfs/settings.json"
+        )
 
         if not os.path.exists(settingsFile):
             Tools.Fail(settingsFile + " doesn't exist.")

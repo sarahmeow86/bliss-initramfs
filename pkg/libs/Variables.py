@@ -35,10 +35,11 @@ home = os.getcwd()
 
 # Kernel and Menu Choice
 kernel = ""
+features = ""
+settingsPath = ""
 modules = ""
 lmodules = ""
 initrd = ""
-features = ""
 
 rstring = str(random.randint(100000000, 999999999))
 
