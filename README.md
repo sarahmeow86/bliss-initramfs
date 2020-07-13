@@ -1,18 +1,19 @@
-## Bliss Initramfs 8.1.0
+## Bliss Initramfs 9.0.0
 #### Jonathan Vasquez (fearedbliss)
 #### Designed for Gentoo Linux
 
 ## Description
 
-An utility that generates an initramfs image with all files and dependencies
-needed to boot your Gentoo Linux system installed on OpenZFS. This program was
-designed as a simple alternative to genkernel for this use case.
+Generates an initramfs image with all files needed to boot your Gentoo Linux
+system installed on Encrypted/OpenZFS. This program was designed as a simple
+alternative to genkernel for this use case.
 
 ## Usage
 
-All you need to do is run the utility, select the options you want "a-la-carte",
-and then tell the initramfs via your bootloader parameters in what order you
-want those features to be trigered in. Check the USAGE file for examples.
+All you need to do is run the application and pass it the kernel you want
+to build the initramfs for. That's it!
+
+`$ ./mkinitrd.py --kernel $(uname -r)`
 
 ## License
 
@@ -28,14 +29,11 @@ Please have the following installed:
 - app-shells/bash
 - sys-apps/kmod
 - sys-apps/grep
-- app-arch/gzip (initramfs compression)
-- sys-fs/zfs (ZFS support)
+- app-arch/gzip
+- sys-fs/zfs
+- sys-fs/zfs-kmod
 - sys-fs/udev OR sys-fs/eudev OR sys-apps/systemd (UUIDs, Labels, etc)
 - sys-apps/kbd (Keymap support)
-
-### Only required if you need encryption
-- sys-fs/cryptsetup (LUKS support)
-- app-crypt/gnupg (GPG Encrypted Keyfile used for LUKS)
 
 For more information/instructions check the USAGE file.
 

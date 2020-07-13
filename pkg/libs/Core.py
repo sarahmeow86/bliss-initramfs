@@ -25,7 +25,6 @@ import pkg.libs.Variables as var
 from pkg.libs.Tools import Tools
 
 from pkg.hooks.Base import Base
-from pkg.hooks.Luks import Luks
 from pkg.hooks.Zfs import Zfs
 from pkg.hooks.Modules import Modules
 from pkg.hooks.Firmware import Firmware
@@ -43,8 +42,10 @@ class Core:
     # Enable the 'base' hook since all initramfs will have this
     Base.Enable()
 
-    # Modules will now always be enabled since all initramfs can have
-    # the ability to have 0 or more modules.
+    # Enable the 'zfs' hook since all initramfs will have this
+    Zfs.Enable()
+
+    # Enable the 'modules' hook since all initramfs will have this
     Modules.Enable()
 
     @classmethod
@@ -61,19 +62,13 @@ class Core:
         Base._kmod_links = settings["base"]["kmodLinks"]
         Base._udev_provider = settings["base"]["udevProvider"]
 
-        # The udev provider is also part of the base required files. However,
-        # we are simplifying it to only one entry in the json so that if the
-        # user's provider defers, they only need to change it in one place.
-        Base.AddFile(Base.GetUdevProvider())
-
         # Modules
 
         # A list of kernel modules to include in the initramfs
         # Format: "module1", "module2", "module3", ...
 
-        # Example: To enable built in encryption support, nvme, i915,
-        # you would have the following modules in your settings.json:
-        # ["dm-crypt", "nvme", "i915"]
+        # Example: To enable nvme and i915 you would have the following
+        # modules in your settings.json: [nvme", "i915"]
         Modules._files = settings["modules"]["files"]
 
         # ZFS
@@ -96,28 +91,6 @@ class Core:
         # PORTAGE_COMPRESS. In this situation, these files will have
         # a different extension. The user should adjust these if needed.
         Zfs._man = settings["zfs"]["manFiles"]
-
-        # LUKS
-
-        # Should we embed our keyfile into the initramfs?
-        Luks._use_keyfile = settings["luks"]["useKeyfile"]
-
-        # Path to the keyfile you would like to embedded directly into the initramfs.
-        # This should be a non-encrypted keyfile since it will be used to automate
-        # the decryption of your / pool (when your /boot is also on /).
-        Luks._keyfile_path = settings["luks"]["keyfilePath"]
-
-        # Should we embed our LUKS header into the initramfs?
-        Luks._use_detached_header = settings["luks"]["useDetachedHeader"]
-
-        # Path to the LUKS header you would like to embedded directly into the initramfs.
-        Luks._detached_header_path = settings["luks"]["detachedHeaderPath"]
-
-        # The "/sbin/dmsetup" required binary is used for udev cookie release
-        # when cryptsetup announces udev support and attempts to decrypt the
-        # drive. Without this, the cryptsetup will lock up and stay at
-        # "waiting for zero"
-        Luks._files = settings["luks"]["files"]
 
         # Firmware
 
@@ -154,56 +127,16 @@ class Core:
         var.modprobeDirectory = settings["modprobeDirectory"]
 
     @classmethod
-    def PrintMenuAndGetDesiredFeatures(cls):
-        """Prints the menu and accepts user features."""
-        # If the user didn't pass their desired features through the command
-        # line, then ask them which initramfs they would like to generate.
-        if not var.features:
-            print("Which initramfs features do you want? (Separated by a comma):")
-            Tools.PrintFeatures()
-            var.features = Tools.Question("Features [1]: ")
+    def AddFilesAfterSettingsLoaded(cls):
+        """Adds required files to different hooks after the settings are loaded."""
 
-            if var.features:
-                var.features = cls.ConvertNumberedFeaturesToNamedList(var.features)
-            else:
-                var.features = ["zfs"]
+        # The udev provider is also part of the base required files. However,
+        # we are simplifying it to only one entry in the json so that if the
+        # user's provider defers, they only need to change it in one place.
+        Base.AddFile(Base.GetUdevProvider())
 
-            Tools.NewLine()
-        else:
-            var.features = var.features.split(",")
-
-        for feature in var.features:
-            if feature == "zfs":
-                Zfs.Enable()
-                Modules.AddFile("zfs")
-            elif feature == "luks":
-                Luks.Enable()
-            # Just a base initramfs with no additional stuff
-            # This can be used with other options though
-            # (i.e you have your rootfs directly on top of LUKS)
-            elif feature == "basic":
-                pass
-            elif feature == "exit":
-                Tools.Warn("Exiting.")
-                quit(0)
-            else:
-                Tools.Warn("Invalid Option. Exiting.")
-                quit(1)
-
-    @classmethod
-    def ConvertNumberedFeaturesToNamedList(cls, numbered_feature_list):
-        """Returns the name equivalent list of a numbered list of features."""
-        named_features = []
-
-        try:
-            for feature in numbered_feature_list.split(","):
-                feature_as_string = Tools._features[int(feature)].lower()
-                named_features.append(feature_as_string)
-        except KeyError:
-            named_features.clear()
-            named_features.append("exit")
-
-        return named_features
+        # Add the required ZFS module
+        Modules.AddFile("zfs")
 
     @classmethod
     def CreateBaselayout(cls):
@@ -214,29 +147,8 @@ class Core:
             call(["mkdir", "-p", dir])
 
     @classmethod
-    def GetDesiredKernel(cls):
-        """Ask the user if they want to use their current kernel, or another one."""
-        if not var.kernel:
-            current_kernel = check_output(
-                ["uname", "-r"], universal_newlines=True
-            ).strip()
-
-            message = (
-                "Do you want to use the current kernel: " + current_kernel + " [Y/n]: "
-            )
-            choice = Tools.Question(message)
-            Tools.NewLine()
-
-            if choice == "y" or choice == "Y" or not choice:
-                var.kernel = current_kernel
-            elif choice == "n" or choice == "N":
-                var.kernel = Tools.Question("Please enter the kernel name: ")
-                Tools.NewLine()
-
-                if not var.kernel:
-                    Tools.Fail("You didn't enter a kernel. Exiting...")
-            else:
-                Tools.Fail("Invalid Option. Exiting.")
+    def SetAndCheckDesiredKernel(cls):
+        """Sets kernel related variables and modules check."""
 
         # Set modules path to correct location and sets kernel name for initramfs
         var.modules = var.modulesDirectory + "/" + var.kernel + "/"
@@ -473,7 +385,7 @@ class Core:
         cls.CreateLibraryLinks()
 
         # Copy the init script
-        Tools.SafeCopy(var.files_dir + "/init", var.temp)
+        Tools.SafeCopy(var.filesDirectory + "/init", var.temp)
 
         # Give execute permissions to the script
         cr = call(["chmod", "u+x", var.temp + "/init"])
@@ -493,19 +405,6 @@ class Core:
         cls.DumpSystemKeymap()
 
         # Any last substitutions or additions/modifications should be done here
-
-        if Luks.IsEnabled():
-            # Copy over our keyfile if the user activated it
-            if Luks.IsKeyfileEnabled():
-                Tools.Flag("Embedding our keyfile into the initramfs...")
-                Tools.SafeCopy(Luks.GetKeyfilePath(), var.temp + "/etc", "keyfile")
-
-            # Copy over our detached header if the user activated it
-            if Luks.IsDetachedHeaderEnabled():
-                Tools.Flag("Embedding our detached header into the initramfs...")
-                Tools.SafeCopy(
-                    Luks.GetDetachedHeaderPath(), var.temp + "/etc", "header"
-                )
 
         # Add any modules needed into the initramfs
         requiredModules = ",".join(Modules.GetFiles())
@@ -581,15 +480,8 @@ class Core:
         # Check required base files
         cls.VerifyBinariesExist(Base.GetFiles())
 
-        # Check required luks files
-        if Luks.IsEnabled():
-            Tools.Flag("Feature: LUKS")
-            cls.VerifyBinariesExist(Luks.GetFiles())
-
         # Check required zfs files
-        if Zfs.IsEnabled():
-            Tools.Flag("Feature: ZFS")
-            cls.VerifyBinariesExist(Zfs.GetFiles())
+        cls.VerifyBinariesExist(Zfs.GetFiles())
 
     @classmethod
     def VerifyBinariesExist(cls, vFiles):
@@ -604,18 +496,13 @@ class Core:
         Tools.Info("Copying binaries ...")
 
         cls.FilterAndInstall(Base.GetFiles())
-
-        if Luks.IsEnabled():
-            cls.FilterAndInstall(Luks.GetFiles())
-
-        if Zfs.IsEnabled():
-            cls.FilterAndInstall(Zfs.GetFiles())
-            cls.FilterAndInstall(Zfs.GetOptionalFiles(), dontFail=True)
+        cls.FilterAndInstall(Zfs.GetFiles())
+        cls.FilterAndInstall(Zfs.GetOptionalFiles(), dontFail=True)
 
     @classmethod
     def CopyManPages(cls):
         """Copies the man pages."""
-        if Zfs.IsEnabled() and Zfs.IsManEnabled():
+        if Zfs.IsManEnabled():
             Tools.Info("Copying man pages ...")
             cls.CopyMan(Zfs.GetManPages())
 
@@ -679,20 +566,18 @@ class Core:
             except CalledProcessError:
                 Tools.ModuleDoesntExist(file)
 
-        # If a kernel has been set, try to update the module dependencies
-        # database before searching it
-        if var.kernel:
-            try:
-                result = call(["depmod", var.kernel])
+        # Try to update the module dependencies database before searching it
+        try:
+            result = call(["depmod", var.kernel])
 
-                if result:
-                    Tools.Fail("Error updating module dependency database!")
-            except FileNotFoundError:
-                # This should never occur because the application checks
-                # that root is the user that is running the application.
-                # Non-administraative users normally don't have access
-                # to the 'depmod' command.
-                Tools.Fail("The 'depmod' command wasn't found.")
+            if result:
+                Tools.Fail("Error updating module dependency database!")
+        except FileNotFoundError:
+            # This should never occur because the application checks
+            # that root is the user that is running the application.
+            # Non-administraative users normally don't have access
+            # to the 'depmod' command.
+            Tools.Fail("The 'depmod' command wasn't found.")
 
         # Get the dependencies for all the modules in our set
         for file in cls._modset:

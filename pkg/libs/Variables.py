@@ -27,7 +27,7 @@ name = "Bliss Initramfs"
 author = "Jonathan Vasquez"
 email = "jon@xyinn.org"
 contact = author + " <" + email + ">"
-version = "8.1.0"
+version = "9.0.0"
 license = "Apache License 2.0"
 
 # Locations
@@ -53,7 +53,7 @@ temp = home + "/bi-" + rstring
 phome = os.path.dirname(os.path.realpath(sys.argv[0]))
 
 # Files Directory
-files_dir = phome + "/files"
+filesDirectory = phome + "/files"
 
 # CPU Architecture
 arch = subprocess.check_output(["uname", "-m"], universal_newlines=True).strip()

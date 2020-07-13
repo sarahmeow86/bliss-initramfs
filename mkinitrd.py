@@ -31,11 +31,8 @@ class Main:
         call(["clear"])
         Tools.PrintHeader()
         Core.LoadSettings()
-        Core.PrintMenuAndGetDesiredFeatures()
-
-        if var.kernel or Modules.GetFiles():
-            Core.GetDesiredKernel()
-
+        Core.AddFilesAfterSettingsLoaded()
+        Core.SetAndCheckDesiredKernel()
         Core.VerifySupportedArchitecture()
         Tools.Clean()
         Core.VerifyPreliminaryBinaries()
@@ -51,7 +48,6 @@ class Main:
         # in our chroot environment.
         Core.CopyDependencies()
         Core.CreateLinks()
-
         Core.LastSteps()
         Core.CreateInitramfs()
         Tools.CleanAndExit(var.initrd)

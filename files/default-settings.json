@@ -62,18 +62,6 @@
             "/usr/share/man/man8/zstreamdump.8.bz2"
         ]
     },
-    "luks": {
-        "useKeyfile": 0,
-        "keyfilePath": "/crypto_keyfile.bin",
-        "useDetachedHeader": 0,
-        "detachedHeaderPath": "/crypto_header.bin",
-        "files": [
-            "/sbin/cryptsetup",
-            "/usr/bin/gpg",
-            "/usr/bin/gpg-agent",
-            "/sbin/dmsetup"
-        ]
-    },
     "systemDirectory": {
         "bin": "/bin",
         "sbin": "/sbin",

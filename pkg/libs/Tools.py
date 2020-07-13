@@ -26,9 +26,6 @@ from subprocess import check_output
 class Tools:
     """Contains various tools/utilities that are used throughout the app."""
 
-    # Available Features
-    _features = {1: "ZFS", 2: "LUKS", 3: "Basic"}
-
     # Checks parameters and running user
     @classmethod
     def ProcessArguments(cls, Modules):
@@ -38,7 +35,7 @@ class Tools:
             cls.Fail("This program must be ran as root")
 
         parser = argparse.ArgumentParser(
-            description="Builds an initramfs for booting from OpenZFS."
+            description="Builds an initramfs for booting from Encrypted/OpenZFS."
         )
         parser.add_argument(
             "-c",
@@ -46,13 +43,9 @@ class Tools:
             help="Path to the settings.json. (i.e: /home/jon/settings.json)",
         )
         parser.add_argument(
-            "-f",
-            "--features",
-            help="Comma delimited list of features you want [Available: zfs, luks, basic]. (i.e: zfs,luks)",
-        )
-        parser.add_argument(
             "-k",
             "--kernel",
+            required=True,
             help="The name of the kernel you are building the initramfs for. (i.e: 4.14.170-FC.01)",
         )
 
@@ -63,9 +56,6 @@ class Tools:
 
         if args.kernel:
             var.kernel = args.kernel
-
-        if args.features:
-            var.features = args.features
 
     @classmethod
     def PrintHeader(cls):
@@ -79,16 +69,6 @@ class Tools:
         Tools.Print(var.contact)
         Tools.Print(var.license)
         print("-" * 30 + "\n")
-
-    @classmethod
-    def PrintFeatures(cls):
-        """Prints the available options."""
-        cls.NewLine()
-
-        for feature in cls._features:
-            cls.Option(str(feature) + ". " + cls._features[feature])
-
-        cls.NewLine()
 
     @classmethod
     def GetProgramPath(cls, vProg):
@@ -232,7 +212,9 @@ class Tools:
         )
 
         if not os.path.exists(settingsFile):
-            fallbackSettingsFile = os.path.join(var.files_dir, "default-settings.json")
+            fallbackSettingsFile = os.path.join(
+                var.filesDirectory, "default-settings.json"
+            )
             Tools.Warn("Configuration File Missing: {}".format(settingsFile))
             Tools.Warn("Defaulting To: {}\n".format(fallbackSettingsFile))
             settingsFile = fallbackSettingsFile
@@ -293,7 +275,7 @@ class Tools:
 
     @classmethod
     def Flag(cls, vFlag):
-        """Used for flags (aka using zfs, luks, etc)."""
+        """Used for flags."""
         call(["echo", "-e", cls.Colorize("purple", "[+] ") + vFlag])
 
     @classmethod

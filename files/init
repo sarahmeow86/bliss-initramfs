@@ -15,11 +15,10 @@
 # limitations under the License.
 
 # ========== Variables ==========
-_use_zfs=0
+_use_encryption=0
+_zfs_encryption_key=""
 _new_root="/mnt/root"
 _init="/sbin/init"
-_key_drive="/mnt/key"
-_embedded_keyfile="/etc/keyfile"
 _cache_file="/etc/zfs/zpool.cache"
 _rootfs_cache_file="${_new_root}${_cache_file}"
 _bliss_version_file="/version.bliss"
@@ -77,8 +76,8 @@ PremountRunOnNewRoot()
     Info "Premounting /run onto the rootfs..."
 
     # Mounts /run onto the rootfs before switching. Mounting this is a requirement
-    # to implement the systemd initrd interface. Without this, I've experienced that
-    # the luks decrypted drives passed through 'enc_devices' would actually stall systemd
+    # to implement the systemd initrd interface. Without this, I've experienced
+    # that the tasks (i.e luks decrypted drives) would actually stall systemd
     # for 1m30s if they were listed in /etc/fstab.
 
     # Link: http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface/
@@ -141,29 +140,8 @@ ParseKernelParameters()
             usr=*)
                 _usr=$(ParseOption "${param}")
                 ;;
-            enc_options=*)
-                _enc_options=$(ParseOption "${param}")
-                ;;
-            enc_drives=*)
-                _enc_drives=$(ParseOption "${param}")
-                ;;
-            enc_targets=*)
-                _enc_targets=$(ParseOption "${param}")
-                ;;
-            enc_type=*)
-                _enc_type=$(ParseOption "${param}")
-                ;;
-            enc_key=*)
-                _enc_key=$(ParseOption "${param}")
-                ;;
-            enc_key_drive=*)
-                _enc_key_drive=$(RetrieveDriveValue "${param}")
-                ;;
-            enc_key_ignore)
-                _enc_key_ignore=1
-                ;;
-            enc_tries=*)
-                _enc_tries=$(ParseOption "${param}")
+            encrypted)
+                _use_encryption=1
                 ;;
             init=*)
                 _init=$(ParseOption "${param}")
@@ -179,12 +157,6 @@ ParseKernelParameters()
                 ;;
             su)
                 _su=1
-                ;;
-            redetect)
-                _redetect=1
-                ;;
-            triggers=*)
-                IFS="," read -a _triggers <<< $(ParseOption "${param}")
                 ;;
         esac
     done
@@ -237,11 +209,11 @@ ParseByOption()
     shopt -u nocasematch
 }
 
-# Retrieves the proper value for the encrypted key drive
+# Retrieves the proper value for the drive
 RetrieveDriveValue()
 {
     if [[ -z $1 ]]; then
-        Fail "No key drive was passed into the function!"
+        Fail "No drive was passed into the function!"
     fi
 
     local tempDrive=$(ParseOption "$1")
@@ -273,335 +245,18 @@ RetrieveDriveValue()
     esac
 }
 
-# Extract all the drives needed to decrypt before mounting the pool
-GetDrivesNeededToDecrypt()
-{
-    if [[ -z ${_enc_drives} ]]; then
-        Ask "Please enter your encrypted drives: " && read _enc_drives
-
-        if [[ -z ${_enc_drives} ]]; then
-            Fail "No encrypted drives have been entered."
-        fi
-    fi
-
-    IFS="," read -a tempDrives <<< "${_enc_drives}"
-
-    for i in "${!tempDrives[@]}"; do
-        case ${tempDrives[i]} in
-            UUID=*)
-                eval "${tempDrives[i]}"
-                _drives+=("/dev/disk/by-uuid/${UUID}")
-                ;;
-            PARTUUID=*)
-                eval "${tempDrives[i]}"
-                _drives+=("/dev/disk/by-partuuid/${PARTUUID}")
-                ;;
-            LABEL=*)
-                eval "${tempDrives[i]}"
-                _drives+=("/dev/disk/by-label/${LABEL}")
-                ;;
-            PARTLABEL=*)
-                eval "${tempDrives[i]}"
-                _drives+=("/dev/disk/by-partlabel/${PARTLABEL}")
-                ;;
-            ID=*)
-                eval "${tempDrives[i]}"
-                _drives+=("/dev/disk/by-id/${ID}")
-                ;;
-            /dev/*)
-                _drives+=(${tempDrives[i]})
-                ;;
-        esac
-    done
-
-    for i in "${!_drives[@]}"; do
-        Flag "Drive `expr ${i} + 1`: ${_drives[i]}"
-    done
-
-    unset tempDrives
-}
-
 # Gets a decryption key without displaying it on screen
 GetDecryptionKey()
 {
-    unset _code
-
-    if [[ $1 == "pass" ]]; then
-        while [[ -z ${_code} ]]; do
-            Ask "Enter passphrase: " && read -s _code && NewLine
-        done
-    elif [[ $1 == "key_gpg" ]]; then
-        while [[ -z ${_code} ]]; do
-            Ask "Enter decryption key: " && read -s _code && NewLine
-        done
-    else
-        Fail "Either a decryption type wasn't passed or it's not supported!"
-    fi
-}
-
-# Returns the encryption type that will be used interactively from the user
-AskEncryptionType()
-{
-    local choice=""
-
-    Info "Please enter the encryption type that will be used:"
-    Flag "1. Passphrase"
-    Flag "2. Keyfile"
-    Flag "3. Encrypted Keyfile"
-    Ask "Current choice [1]: " && read choice
-
-    local isResponseValid="no"
-
-    while [[ ${isResponseValid} == "no" ]]; do
-        case "${choice}" in
-            ""|1)
-                _enc_type="pass"
-                isResponseValid="yes"
-                ;;
-            2)
-                _enc_type="key"
-                isResponseValid="yes"
-                ;;
-            3)
-                _enc_type="key_gpg"
-                isResponseValid="yes"
-                ;;
-            *)
-                Ask "Invalid input. Please enter a correct choice: "
-                read choice
-                ;;
-        esac
+    while [[ -z "${_zfs_encryption_key}" ]]; do
+        Ask "Enter passphrase: " && read -s _zfs_encryption_key && NewLine
     done
 }
 
-# Prints the available drives
-PrintAvailableDrives()
+# Loads the encryption key for the pool
+LoadZfsKey()
 {
-    Info "Detecting available drives..." && sleep "${_timer}" && ls /dev/*
-}
-
-# Detects the available drives
-DetectAvailableDrives()
-{
-    _timer=3
-
-    if [[ -z ${_redetect} ]]; then
-        PrintAvailableDrives
-    else
-        local keepGoing="yes"
-
-        while [[ ${keepGoing} == "yes" ]]; do
-            PrintAvailableDrives
-
-            local choice=""
-            Ask "Do you want to re-detect the drives? [y/N]: " && read choice
-            _timer=0
-
-            if [[ ${choice} != "y" ]] && [[ ${choice} != "Y" ]]; then
-                keepGoing="no"
-            fi
-        done
-    fi
-}
-
-# Run LUKS Specific Code
-LuksTrigger()
-{
-    Info "Gathering encrypted devices..." && GetDrivesNeededToDecrypt
-
-    # If we already have a keyfile in the initrd, but we don't want to ignore it,
-    # then we will try to use it to decrypt our drives. This was implemented in order to
-    # reduce the number of passphrases that are needed to be typed after GRUB decrypts a
-    # / partition that contains /boot inside of it.
-    if [[ -f ${_embedded_keyfile} ]] && [[ ${_enc_key_ignore} -ne 1 ]]; then
-        if [[ -z ${_enc_type} ]] || [[ ${_enc_type} != "key" ]]; then
-            Fail "You must set your \"enc_type\" to \"key\" if you want to use your embedded keyfile."
-        fi
-
-        _keyfile="${_embedded_keyfile}"
-    else
-        PrepareForLuks
-    fi
-
-    # Create LUKS2 Header /run/cryptsetup directory to eliminate warning.
-    # https://lists.debian.org/debian-boot/2019/02/msg00100.html
-
-    # The directory needs to be created from within the initramfs rather
-    # than during initramfs generation, since /run is a tmpfs.
-    # https://lwn.net/Articles/436012/
-    mkdir -m 0700 /run/cryptsetup
-
-    # Attempt to decrypt the drives
-    DecryptDrives
-
-    # If we ignored the embedded keyfile before, then that means
-    # that we possibly might need to unmount the key drive (If key or key_gpg
-    # was the enc_type).
-    if [[ ${_enc_key_ignore} -eq 1 ]]; then
-        UnmountKeyfileDriveIfNeeded
-    fi
-}
-
-# Gathers the required LUKS related information from the user.
-# (including mounting the drive with the user's keyfile)
-PrepareForLuks()
-{
-    # If the user left their _enc_type blank (Could be intentional),
-    # then let's ask them now to select the type.
-    if [[ -z ${_enc_type} ]]; then
-        AskEncryptionType
-
-        if [[ -z ${_enc_type} ]]; then
-            Fail "The encryption type was not set."
-        fi
-    fi
-
-    if [[ ${_enc_type} != "pass" ]] && [[ ${_enc_type} != "key" ]] && [[ ${_enc_type} != "key_gpg" ]]; then
-        Fail "Invalid 'enc_type' option. Only 'pass', 'key', and 'key_gpg' are supported."
-    fi
-
-    # Gathers information required (passphrase, keyfile location, etc)
-    if [[ ${_enc_type} == "pass" ]]; then
-        GetDecryptionKey "pass"
-    elif [[ ${_enc_type} == "key" ]] || [[ ${_enc_type} == "key_gpg" ]]; then
-        # What drive is the keyfile in?
-        if [[ -z ${_enc_key_drive} ]]; then
-            DetectAvailableDrives
-            Ask "Enter drive where keyfile is located: " && read _enc_key_drive
-
-            if [[ -z ${_enc_key_drive} ]]; then
-                Fail "Error setting path to keyfile's drive!"
-            fi
-        fi
-
-        # What is the path to the keyfile?
-        if [[ -z ${_enc_key} ]]; then
-            Ask "Enter path to keyfile: " && read _enc_key
-
-            if [[ -z ${_enc_key} ]]; then
-                Fail "Error setting path to keyfile!"
-            fi
-        fi
-
-        # What is the decryption key for the keyfile?
-        if [[ ${_enc_type} == "key_gpg" ]]; then
-            GetDecryptionKey "key_gpg"
-        fi
-
-        # Mount the drive
-        mount "${_enc_key_drive}" "${_key_drive}" || Fail "Failed to mount your key drive"
-
-        # Set path to keyfile
-        _keyfile="${_key_drive}/${_enc_key}"
-    fi
-}
-
-# Unmounts the drive with the keyfile if we had one
-UnmountKeyfileDriveIfNeeded()
-{
-    if [[ ${_enc_type} == "key" ]] || [[ ${_enc_type} == "key_gpg" ]]; then
-        umount "${_key_drive}"
-
-        if [[ $? -ne 0 ]]; then
-            Warn "Error unmounting your key drive"
-        else
-            Info "Your key drive has been unmounted successfully."
-        fi
-    fi
-}
-
-# Validate the maximum tries for decryption
-ValidateMaximumTries()
-{
-    local maximumTryValue=5
-
-    if [[ -z ${_enc_tries} ]]; then
-        _enc_tries=${maximumTryValue}
-    elif [[ ! ${_enc_tries} -gt 0 ]]; then
-        _enc_tries=${maximumTryValue}
-    fi
-}
-
-# Attempts to decrypt the drives
-DecryptDrives()
-{
-    if [[ -z ${_drives[@]} ]]; then
-        Fail "Failed to get encrypted drives. The 'drives' value is empty."
-    fi
-
-    # Make sure that the maximum amount of tries is set correctly
-    ValidateMaximumTries
-
-    # Set up a counter in case the user gave an incorrect passphrase/key_gpg decryption code
-    local count=0
-    local max="${_enc_tries}"
-
-    if [[ ! -z ${_enc_targets// } ]]; then
-        IFS="," read -a tempTargets <<< "${_enc_targets}"
-    fi
-
-    for i in "${!_drives[@]}"; do
-        if [[ -z ${tempTargets[i]// } ]]; then
-            vaultname="vault_${i}_$(basename "${_drives[i]}")"
-        else
-            vaultname=${tempTargets[i]}
-        fi
-
-        if [[ ${_enc_type} == "pass" ]]; then
-            while [[ ${count} -lt ${max} ]]; do
-                # Putting the _enc_options var in double quotes _will_ cause cryptsetup to fail
-                # and display an "unknown option" message.
-                echo "${_code}" | cryptsetup ${_enc_options} luksOpen "${_drives[i]}" "${vaultname}" && break
-
-                if [[ $? -ne 0 ]]; then
-                    count=$((count + 1))
-
-                    # If the user kept failing and reached their max tries,
-                    # then throw them into a rescue shell
-                    if [[ ${count} -eq ${max} ]]; then
-                        Fail "Failed to decrypt: ${_drives[i]}"
-                    else
-                        GetDecryptionKey "pass"
-                    fi
-                fi
-            done
-        elif [[ ${_enc_type} == "key" ]]; then
-            if [[ ! -e ${_keyfile} ]]; then
-                Fail "The keyfile doesn't exist in this path: ${_keyfile}"
-            fi
-
-            cryptsetup --key-file "${_keyfile}" ${_enc_options} luksOpen "${_drives[i]}" "${vaultname}"
-
-            if [[ $? -ne 0 ]]; then
-                Fail "Failed to decrypt ${_drives[i]}!"
-            else
-                Flag "${_drives[i]} opened -> ${vaultname}"
-            fi
-        elif [[ ${_enc_type} == "key_gpg" ]]; then
-            if [[ ! -e ${_keyfile} ]]; then
-                Fail "The keyfile doesn't exist in this path: ${_keyfile}"
-            fi
-
-            while [[ ${count} -lt ${max} ]]; do
-                echo "${_code}" | gpg --batch --passphrase-fd 0 -q -d "${_keyfile}" 2> /dev/null | \
-                    cryptsetup --key-file=- ${_enc_options} luksOpen ${_drives[i]} ${vaultname} && break
-
-                if [[ $? -ne 0 ]]; then
-                    count=$((count + 1))
-
-                    # If the user kept failing and reached their max tries,
-                    # then throw them into a rescue shell
-                    if [[ ${count} -eq ${max} ]]; then
-                        Fail "Failed to decrypt: ${_drives[i]}"
-                    else
-                        GetDecryptionKey "pass"
-                    fi
-                fi
-            done
-        fi
-    done
-
-    unset tempTargets
+    echo "${_zfs_encryption_key}" | zfs load-key "${_pool_name}"
 }
 
 # Retrieves the zpool.cache file from the rootfs
@@ -615,6 +270,8 @@ GetZpoolCacheFromSystem()
         PrepForSafeZfsCommand && zpool import -d "${_by}" -f -N -o readonly=on "${_pool_name}"
     fi
 
+    [[ ${_use_encryption} -eq 1 ]] && LoadZfsKey
+
     PrepForSafeZfsCommand && mount -t zfs -o ro,zfsutil "${_root}" "${_new_root}"
 
     if [[ -f "${_rootfs_cache_file}" ]]; then
@@ -627,7 +284,8 @@ GetZpoolCacheFromSystem()
         Warn "It will automatically be copied into your system."
     fi
 
-    # Let's also call the safe command before a normal unmount (since the unmount is ultimately acting on a zfs dataset)
+    # Let's also call the safe command before a normal unmount
+    # (since the unmount is ultimately acting on a zfs dataset)
     PrepForSafeZfsCommand && umount "${_new_root}"
 
     # Use -F (undocumented flag) so that the copied zpool.cache is not nuked.
@@ -641,28 +299,40 @@ ZfsTrigger()
 
     Flag "Importing \"${_pool_name}\"..."
 
+    # Request the encryption key if needed. This will be cached and re-used
+    # as we attempt to boot into the system. For now we are only supporting
+    # "passphrase based decryption". The passphrase needed will be the
+    # passphrase set at the pool level, so make sure that your OS dataset is
+    # using that same one if multiple passphrases are being used.
+    if [[ ${_use_encryption} -eq 1 ]]; then
+        Info "Loading encryption key for \"${_pool_name}\"..."
+        GetDecryptionKey
+    fi
+
     # Use the system's cache file only if we don't want to reset it.
     if [[ ${_refresh} -ne 1 ]]; then
         GetZpoolCacheFromSystem
     fi
 
     if [[ -f "${_cache_file}" ]]; then
-        # In order for this to be successful, the paths for each device in the zpool's
-        # cache file need to be in the initramfs exactly as they were when the
-        # pool was last explictly imported. In other words, the paths in the zpool.cache
-        # for each drive must exist in the initramfs.
+        # In order for this to be successful, the paths for each device in the
+        # zpool's cache file need to be in the initramfs exactly as they were
+        # when the pool was last explictly imported. In other words, the paths
+        # in the zpool.cache for each drive must exist in the initramfs.
         Info "Loading \"${_pool_name}\" from zpool.cache..."
 
-        # We are going to use the zpool.cache file but we will only mount from the pool that
-        # contains our root dataset. Post early boot should be responsible for mounting the rest
-        # of the pools/datasets. If we attempt to mount all the pools at this point, there is a
-        # possibility that the boot will fail (Example: You had an encrypted backup drive/pool enabled,
-        # then you rebooted your machine, and the initramfs fails because the backup pool is listed in
-        # the cache, but all the drives are locked.)
-
+        # We are going to use the zpool.cache file but we will only mount from
+        # the pool that contains our root dataset. Post early boot should be
+        # responsible for mounting the rest of the pools/datasets. If we
+        # attempt to mount all the pools at this point, there is a possibility
+        # that the boot will fail (Example: You had an encrypted backup
+        # drive/pool enabled, then you rebooted your machine, and the initramfs
+        # fails because the backup pool is listed in the cache, but all the
+        # drives are locked.)
         PrepForSafeZfsCommand && zpool import -N -c "${_cache_file}" "${_pool_name}"
 
         if [[ $? -eq 0 ]]; then
+            [[ ${_use_encryption} -eq 1 ]] && LoadZfsKey
             return
         fi
 
@@ -678,6 +348,8 @@ ZfsTrigger()
         PrepForSafeZfsCommand && zpool import -d "${_by}" -f -N -o cachefile= "${_pool_name}" || \
             Fail "Failed to mount \"${_pool_name}\" from the \"${_by}\" directory."
 
+        [[ ${_use_encryption} -eq 1 ]] && LoadZfsKey
+
         Info "Successfully mounted \"${_pool_name}\" using the \"${_by}\" directory."
     else
         _device_dirs=(
@@ -690,6 +362,7 @@ ZfsTrigger()
 
         for i in ${!_device_dirs[@]}; do
             local dir=${_device_dirs[i]}
+
             PrepForSafeZfsCommand && zpool import -d "${dir}" -f -N -o cachefile= "${_pool_name}"
 
             if [[ $? == 0 ]]; then
@@ -699,9 +372,11 @@ ZfsTrigger()
             fi
         done
 
-        if [[ ${success} -eq 1 ]]; then
+        if [[ ${success} -ne 0 ]]; then
             Fail "Failed to mount \"${_pool_name}\" after scanning all the device directories."
         fi
+
+        [[ ${_use_encryption} -eq 1 ]] && LoadZfsKey
     fi
 }
 
@@ -713,17 +388,12 @@ MountRoot()
     # Using "" for the ${options} below so that if the user doesn't have any
     # options, the variable ends up expanding back to empty quotes and allows
     # the mount command to keep going.
-    if [[ ${_use_zfs} -eq 1 ]]; then
-        PrepForSafeZfsCommand && mount -t zfs -o zfsutil,"${options}" "${_root}" "${_new_root}" || \
-            Fail "Failed to import your zfs root dataset!"
+    PrepForSafeZfsCommand && mount -t zfs -o zfsutil,"${_options}" "${_root}" "${_new_root}" || \
+        Fail "Failed to import your zfs root dataset!"
 
-        if [[ ${_refresh} -eq 1 ]] || [[ ! -f "${_rootfs_cache_file}" ]]; then
-            # Installs the cache generated by this initramfs run, to the rootfs.
-            InstallZpoolCache
-        fi
-    else
-        mount -o "${_options}" "${_root}" "${_new_root}" || \
-            Fail "Failed to import your rootfs: ${_root}!"
+    if [[ ${_refresh} -eq 1 ]] || [[ ! -f "${_rootfs_cache_file}" ]]; then
+        # Installs the cache generated by this initramfs run, to the rootfs.
+        InstallZpoolCache
     fi
 }
 
@@ -735,12 +405,7 @@ MountUsrIfNeeded()
     if [[ ! -z ${_usr} ]]; then
         Info "Mounting /usr onto your rootfs..."
         local targetUsrDirectory="${_new_root}"/usr
-
-        if [[ ${_use_zfs} -eq 1 ]]; then
-            PrepForSafeZfsCommand && mount -t zfs -o zfsutil,"${options}" "${_usr}" "${targetUsrDirectory}" || Fail "${usrFailMessage}"
-        else
-            mount -o "${_options}" "${_usr}" "${targetUsrDirectory}" || Fail "${usrFailMessage}"
-        fi
+        PrepForSafeZfsCommand && mount -t zfs -o zfsutil,"${_options}" "${_usr}" "${targetUsrDirectory}" || Fail "${usrFailMessage}"
     fi
 }
 
@@ -755,29 +420,17 @@ SwitchToNewRoot()
 # command to work properly without receiving a "device or resource busy" message.
 PrepForSafeZfsCommand()
 {
-    # Using zfs list primarily for performance (zpool import is way slower because it tries to scan
-    # the devices in order to see if it can find anything to import).
-    # Normal commands that cause some sort of delay like if [[ $? -eq 0 ]] or 'sleep' will improve
-    # the success rate of a subsequent mount command to work, but it still has a high chance to fail.
-    # Running a zfs specific command before calling a mount that mounts a zfs dataset seems to have a
-    # 100% mount success rate.
+    # Using zfs list primarily for performance (zpool import is way slower
+    # because it tries to scan the devices in order to see if it can find
+    # anything to import). Normal commands that cause some sort of delay
+    # like if [[ $? -eq 0 ]] or 'sleep' will improve the success rate of
+    # a subsequent mount command to work, but it still has a high chance to
+    # fail. Running a zfs specific command before calling a mount that mounts
+    # a zfs dataset seems to have a 100% mount success rate.
 
-    # Using "-H -t -o -s" flags so that if a system has a lot of snapshots, it doesn't slow things down.
+    # Using "-H -t -o -s" flags so that if a system has a lot of snapshots,
+    # it doesn't slow things down.
     zfs list -H -t filesystem -o name -s name 2>&1 > /dev/null
-    return 0
-}
-
-# Run each trigger defined by the user in the exact order they defined them.
-CheckAndRunTriggers()
-{
-    for trigger in ${_triggers[@]}; do
-        if [[ ${trigger} == "luks" ]]; then
-            LuksTrigger
-        elif [[ ${trigger} == "zfs" ]]; then
-            _use_zfs=1
-            ZfsTrigger
-        fi
-    done
 }
 
 # Installs the zpool.cache to the rootfs
@@ -870,7 +523,7 @@ StartUdev
 
 [[ ${_recover} -eq 1 ]] && RescueShell
 
-CheckAndRunTriggers
+ZfsTrigger
 MountRoot
 MountUsrIfNeeded
 
