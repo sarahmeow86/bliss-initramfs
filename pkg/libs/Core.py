@@ -583,12 +583,12 @@ class Core:
 
         # Check required luks files
         if Luks.IsEnabled():
-            Tools.Flag("Using LUKS")
+            Tools.Flag("Feature: LUKS")
             cls.VerifyBinariesExist(Luks.GetFiles())
 
         # Check required zfs files
         if Zfs.IsEnabled():
-            Tools.Flag("Using ZFS")
+            Tools.Flag("Feature: ZFS")
             cls.VerifyBinariesExist(Zfs.GetFiles())
 
     @classmethod
@@ -663,6 +663,7 @@ class Core:
 
         # Checks to see if all the modules in the list exist (if any)
         for file in Modules.GetFiles():
+            Tools.Flag("Module: {}".format(file))
             try:
                 cmd = (
                     "find "
@@ -714,12 +715,14 @@ class Core:
                     moddeps.add(i.strip())
 
         # Copy the modules/dependencies
-        if moddeps:
-            for module in moddeps:
-                Tools.Copy(module)
+        if not moddeps:
+            return
 
-            # Update module dependency database inside the initramfs
-            cls.GenerateModprobeInfo()
+        for module in moddeps:
+            Tools.Copy(module)
+
+        # Update module dependency database inside the initramfs
+        cls.GenerateModprobeInfo()
 
     @classmethod
     def CopyDependencies(cls):

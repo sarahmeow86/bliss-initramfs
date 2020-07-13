@@ -232,7 +232,17 @@ class Tools:
         )
 
         if not os.path.exists(settingsFile):
-            Tools.Fail(settingsFile + " doesn't exist.")
+            fallbackSettingsFile = os.path.join(var.files_dir, "default-settings.json")
+            Tools.Warn("Configuration File Missing: {}".format(settingsFile))
+            Tools.Warn("Defaulting To: {}\n".format(fallbackSettingsFile))
+            settingsFile = fallbackSettingsFile
+
+            if not os.path.exists(settingsFile):
+                Tools.Fail(
+                    "Backup Configuration File Missing: {}. Exiting.".format(
+                        settingsFile
+                    )
+                )
 
         with open(settingsFile) as settings:
             return json.load(settings)
