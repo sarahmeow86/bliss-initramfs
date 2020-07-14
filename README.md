@@ -13,7 +13,7 @@ alternative to genkernel for this use case.
 All you need to do is run the application and pass it the kernel you want
 to build the initramfs for. That's it!
 
-`$ ./mkinitrd.py --kernel $(uname -r)`
+`$ ./mkinitrd.py -k $(uname -r)`
 
 ## License
 
@@ -35,7 +35,7 @@ Please have the following installed:
 - sys-fs/udev OR sys-fs/eudev OR sys-apps/systemd (UUIDs, Labels, etc)
 - sys-apps/kbd (Keymap support)
 
-For more information/instructions check the USAGE file.
+For more information/instructions check the `USAGE` file.
 
 ## Contributions
 

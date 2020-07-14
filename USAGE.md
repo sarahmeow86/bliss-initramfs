@@ -97,11 +97,14 @@ will also be asked for your pool's passphrase.
      - partlabel
      - \* (Wild card will just set the 'by' variable to whatever you specified.)
 
-	- Example
-			- `by=label` -> /dev/disk/by-label
-			- `by=uuid`  -> /dev/disk/by-uuid
-			- `by=dev`   -> /dev
-			- `by=/mystical/ninja` -> /mystical/ninja
+
+
+	Example
+
+	- `by=label` -> /dev/disk/by-label
+	- `by=uuid`  -> /dev/disk/by-uuid
+	- `by=dev`   -> /dev
+	- `by=/mystical/ninja` -> /mystical/ninja
 
 - `refresh` - Ignores the zpool.cache in the rootfs, creates a new one
           inside the initramfs at import, and then copies it into the rootfs.
