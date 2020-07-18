@@ -252,7 +252,7 @@ GetDecryptionKey()
     _was_pool_imported=0
 
     while [[ -z "${_zfs_encryption_key}" ]]; do
-        Ask "Enter passphrase: " && read -s _zfs_encryption_key && NewLine
+        Ask "Enter passphrase: " && read -s -r _zfs_encryption_key && NewLine
 
         if [[ ${_was_pool_imported} -eq 0 ]]; then
             PrepForSafeZfsCommand && zpool import -f -o readonly=on "${_pool_name}" -R /tmp/random_dir
