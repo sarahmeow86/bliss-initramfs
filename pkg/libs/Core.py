@@ -122,9 +122,11 @@ class Core:
         var.modulesDirectory = settings["modulesDirectory"]
         var.firmwareDirectory = settings["firmwareDirectory"]
         var.initrdPrefix = settings["initrdPrefix"]
-        var.udevConfigDirectory = settings["udevConfigDirectory"]
-        var.udevLibDirectory = settings["udevLibDirectory"]
         var.modprobeDirectory = settings["modprobeDirectory"]
+        var.udevEtcDirectory = settings["udev"]["etc"]["baseDirectory"]
+        var.udevEtcExcludedFiles = settings["udev"]["etc"]["excludedFiles"]
+        var.udevLibDirectory = settings["udev"]["lib"]["baseDirectory"]
+        var.udevLibExcludedFiles = settings["udev"]["lib"]["excludedFiles"]
 
     @classmethod
     def AddFilesAfterSettingsLoaded(cls):
@@ -322,41 +324,45 @@ class Core:
         call(cmd, shell=True)
 
     @classmethod
+    def _CopyUdevAndDeleteFiles(cls, udevDirectory, udevExcludedFiles):
+        """Helper function to copy udev directory and delete excluded files."""
+        tempUdevDirectory = var.temp + udevDirectory
+
+        if os.path.isdir(udevDirectory):
+            shutil.copytree(udevDirectory, tempUdevDirectory)
+
+        if udevExcludedFiles:
+            for udevFile in udevExcludedFiles:
+                fileToRemove = tempUdevDirectory + "/" + udevFile
+
+                if os.path.exists(fileToRemove):
+                    os.remove(fileToRemove)
+
+    @classmethod
     def CopyUdevAndSupportFiles(cls):
         """Copies udev and files that udev uses, like /etc/udev/*, /lib/udev/*, etc."""
-        # Copy all of the udev files
-        udev_conf_dir = var.udevConfigDirectory
-        temp_udev_conf_dir = var.temp + udev_conf_dir
-
-        if os.path.isdir(udev_conf_dir):
-            shutil.copytree(udev_conf_dir, temp_udev_conf_dir)
-
-        udev_lib_dir = var.udevLibDirectory
-        temp_udev_lib_dir = var.temp + udev_lib_dir
-
-        if os.path.isdir(udev_lib_dir):
-            shutil.copytree(udev_lib_dir, temp_udev_lib_dir)
+        cls._CopyUdevAndDeleteFiles(var.udevEtcDirectory, var.udevEtcExcludedFiles)
+        cls._CopyUdevAndDeleteFiles(var.udevLibDirectory, var.udevLibExcludedFiles)
 
         # Rename udevd and place in /sbin
-        udev_provider = Base.GetUdevProvider()
-        systemd_dir = os.path.dirname(udev_provider)
+        udevProvider = Base.GetUdevProvider()
+        providerDir = os.path.dirname(udevProvider)
+        tempUdevProvider = var.temp + udevProvider
+        sbinUdevd = var.sbin + "/udevd"
 
-        sbin_udevd = var.sbin + "/udevd"
-        udev_provider_temp = var.temp + udev_provider
+        if os.path.isfile(tempUdevProvider) and udevProvider != sbinUdevd:
+            tempUdevProviderNew = var.temp + sbinUdevd
+            os.rename(tempUdevProvider, tempUdevProviderNew)
 
-        if os.path.isfile(udev_provider_temp) and udev_provider != sbin_udevd:
-            udev_provider_new = var.temp + sbin_udevd
-            os.rename(udev_provider_temp, udev_provider_new)
-
-            temp_systemd_dir = var.temp + systemd_dir
+            tempProviderDir = var.temp + providerDir
 
             # If the directory is empty, than remove it.
             # With the recent gentoo systemd root prefix move, it is moving to
             # /lib/systemd. Thus this directory also contains systemd dependencies
             # such as: libsystemd-shared-###.so
             # https://gentoo.org/support/news-items/2017-07-16-systemd-rootprefix.html
-            if not os.listdir(temp_systemd_dir):
-                os.rmdir(temp_systemd_dir)
+            if not os.listdir(tempProviderDir):
+                os.rmdir(tempProviderDir)
 
     @classmethod
     def DumpSystemKeymap(cls):

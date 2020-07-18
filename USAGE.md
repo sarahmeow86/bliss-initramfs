@@ -151,3 +151,16 @@ rather copy all the firmware that's on your system, you can toggle the
 from your system's /lib/firmware directory (Which can be modified in the
 "firmwareDirectory" setting). The firmware that you add to the "files"
 list should be relative to this directory.
+
+## Excluding Udev Files
+
+bliss-initramfs copies all of the files in both of your udev configuration
+directories (i.e `/lib/udev` and `/etc/udev`), however, sometimes there are
+files in there that can cause delays if they exist during early boot.
+For example, on my machine if I have laptop-mode-tools installed, the
+`lmt-udev auto` udev related files would kick in and cause a delay of over
+2 minutes. For these files, we can add the file path relative to the
+corresponding directory in the appropriate section in settings.json.
+
+If I wanted to exclude the `/lib/udev/rules.d/78-sound-card.rules`, I would add
+`rules.d/78-sound-card.rules` to the `udev -> lib -> excludedFiles` section.

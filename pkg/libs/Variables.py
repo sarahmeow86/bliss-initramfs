@@ -27,7 +27,7 @@ name = "Bliss Initramfs"
 author = "Jonathan Vasquez"
 email = "jon@xyinn.org"
 contact = author + " <" + email + ">"
-version = "9.0.0"
+version = "9.1.0"
 license = "Apache License 2.0"
 
 # Locations

@@ -73,10 +73,18 @@
         "/bin/cpio",
         "/sbin/depmod"
     ],
+    "udev": {
+        "etc": {
+            "baseDirectory": "/etc/udev",
+            "excludedFiles": []
+        },
+        "lib": {
+            "baseDirectory": "/lib/udev",
+            "excludedFiles": []
+        }
+    },
     "initrdPrefix": "initrd-",
     "modulesDirectory": "/lib/modules",
     "firmwareDirectory": "/lib/firmware",
-    "udevConfigDirectory": "/etc/udev",
-    "udevLibDirectory": "/lib/udev",
     "modprobeDirectory": "/etc/modprobe.d"
 }
