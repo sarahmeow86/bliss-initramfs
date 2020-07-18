@@ -48,6 +48,13 @@ class Tools:
             required=True,
             help="The name of the kernel you are building the initramfs for. (i.e: 4.14.170-FC.01)",
         )
+        parser.add_argument(
+            "-v",
+            "--version",
+            action="version",
+            version="%(prog)s {}".format(var.version),
+            help="Displays the version of this application.",
+        )
 
         args = parser.parse_args()
 
