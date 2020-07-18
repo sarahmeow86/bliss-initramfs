@@ -245,18 +245,36 @@ RetrieveDriveValue()
     esac
 }
 
-# Gets a decryption key without displaying it on screen
+# Gets a decryption key without displaying it on screen. Retrieving the
+# decryption key will test and block until a correct key is given.
 GetDecryptionKey()
 {
+    _was_pool_imported=0
+
     while [[ -z "${_zfs_encryption_key}" ]]; do
         Ask "Enter passphrase: " && read -s _zfs_encryption_key && NewLine
+
+        if [[ ${_was_pool_imported} -eq 0 ]]; then
+            PrepForSafeZfsCommand && zpool import -f -o readonly=on "${_pool_name}" -R /tmp/random_dir
+            _was_pool_imported=1
+        fi
+
+        LoadZfsKey "dry-run"
+
+        [[ $? -ne 0 ]] && unset _zfs_encryption_key
     done
+
+    [[ ${_was_pool_imported} -eq 1 ]] && PrepForSafeZfsCommand && zpool export "${_pool_name}"
 }
 
 # Loads the encryption key for the pool
 LoadZfsKey()
 {
-    echo "${_zfs_encryption_key}" | zfs load-key "${_pool_name}"
+    if [[ $1 == "dry-run" ]]; then
+        echo "${_zfs_encryption_key}" | zfs load-key -n "${_pool_name}"
+    else
+        echo "${_zfs_encryption_key}" | zfs load-key "${_pool_name}"
+    fi
 }
 
 # Retrieves the zpool.cache file from the rootfs
