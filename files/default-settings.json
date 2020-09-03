@@ -15,9 +15,9 @@
             "/bin/egrep",
             "/bin/fgrep",
             "/bin/grep",
-            "/usr/bin/loadkeys",
             "/bin/kmod",
-            "/bin/udevadm"
+            "/bin/udevadm",
+            "/usr/bin/loadkeys"
         ],
         "kmodLinks": [
             "depmod",
@@ -37,21 +37,26 @@
             "/sbin/zpool"
         ],
         "optionalFiles": [
+            "/bin/raidz_test",
+            "/bin/zgenhostid",
+            "/bin/zvol_wait",
             "/sbin/zdb",
+            "/sbin/zfs_ids_to_path",
             "/sbin/zhack",
             "/sbin/zinject",
+            "/sbin/zstream",
             "/sbin/zstreamdump",
             "/sbin/ztest"
         ],
         "useMan": 0,
         "manFiles": [
-            "/usr/share/man/man5/spl-module-parameters.5.bz2",
             "/usr/share/man/man1/zhack.1.bz2",
             "/usr/share/man/man1/ztest.1.bz2",
             "/usr/share/man/man5/vdev_id.conf.5.bz2",
             "/usr/share/man/man5/zfs-events.5.bz2",
             "/usr/share/man/man5/zfs-module-parameters.5.bz2",
             "/usr/share/man/man5/zpool-features.5.bz2",
+            "/usr/share/man/man5/spl-module-parameters.5.bz2",
             "/usr/share/man/man8/fsck.zfs.8.bz2",
             "/usr/share/man/man8/mount.zfs.8.bz2",
             "/usr/share/man/man8/vdev_id.8.bz2",

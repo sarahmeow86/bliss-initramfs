@@ -563,7 +563,7 @@ class Core:
                     + var.modules
                     + ' -iname "'
                     + file
-                    + '.ko" | grep '
+                    + '.ko*" | grep '
                     + file
                     + ".ko"
                 )
@@ -592,7 +592,6 @@ class Core:
 
             if match:
                 sFile = match.group().split(".")[0]
-
                 cmd = (
                     "modprobe -S "
                     + var.kernel
@@ -662,7 +661,7 @@ class Core:
             cmd = (
                 "ldd "
                 + binary
-                + " | awk -F '=>' '{print $2}' | awk -F ' ' '{print $1}' | sed '/^ *$/d'"
+                + " 2>&1 | grep -v 'not a dynamic executable' | awk -F '=>' '{print $2}' | awk -F ' ' '{print $1}' | sed '/^ *$/d'"
             )
             results = check_output(cmd, shell=True, universal_newlines=True).strip()
 

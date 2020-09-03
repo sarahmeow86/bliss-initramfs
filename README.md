@@ -27,7 +27,7 @@ Please have the following installed:
 - dev-lang/python 3.6+
 - app-arch/cpio
 - app-shells/bash
-- sys-apps/kmod
+- sys-apps/kmod (`lzma` support required to read compressed kernel modules)
 - sys-apps/grep
 - app-arch/gzip
 - sys-fs/zfs
