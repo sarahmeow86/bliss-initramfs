@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import shutil
 import re
 
 from subprocess import call
@@ -188,8 +187,8 @@ class Core:
         Tools.Info("Generating modprobe information ...")
 
         # Copy modules.order and modules.builtin just so depmod doesn't spit out warnings. -_-
-        Tools.Copy(var.modules + "/modules.order")
-        Tools.Copy(var.modules + "/modules.builtin")
+        Tools.Into(var.modules + "/modules.order")
+        Tools.Into(var.modules + "/modules.builtin")
 
         result = call(["depmod", "-b", var.temp, var.kernel])
 
@@ -206,7 +205,7 @@ class Core:
 
             if os.path.isdir(var.firmwareDirectory):
                 if Firmware.IsCopyAllEnabled():
-                    shutil.copytree(
+                    Tools.CopyTree(
                         var.firmwareDirectory, var.temp + var.firmwareDirectory
                     )
                 else:
@@ -214,7 +213,7 @@ class Core:
                     if Firmware.GetFiles():
                         try:
                             for fw in Firmware.GetFiles():
-                                Tools.Copy(fw, directoryPrefix=var.firmwareDirectory)
+                                Tools.Into(fw, directoryPrefix=var.firmwareDirectory)
                         except FileNotFoundError:
                             Tools.Warn(
                                 "An error occurred while copying the following firmware file: {}".format(
@@ -232,7 +231,7 @@ class Core:
                                 targetFirmwareDirectory = (
                                     var.temp + sourceFirmwareDirectory
                                 )
-                                shutil.copytree(
+                                Tools.CopyTree(
                                     sourceFirmwareDirectory, targetFirmwareDirectory
                                 )
                         except FileNotFoundError:
@@ -329,7 +328,7 @@ class Core:
         tempUdevDirectory = var.temp + udevDirectory
 
         if os.path.isdir(udevDirectory):
-            shutil.copytree(udevDirectory, tempUdevDirectory)
+            Tools.CopyTree(udevDirectory, tempUdevDirectory)
 
         if udevExcludedFiles:
             for udevFile in udevExcludedFiles:
@@ -405,7 +404,7 @@ class Core:
 
         # Copy all of the modprobe configurations
         if os.path.isdir(var.modprobeDirectory):
-            shutil.copytree(var.modprobeDirectory, var.temp + var.modprobeDirectory)
+            Tools.CopyTree(var.modprobeDirectory, var.temp + var.modprobeDirectory)
 
         cls.CopyUdevAndSupportFiles()
         cls.DumpSystemKeymap()
@@ -521,7 +520,7 @@ class Core:
         # have yet been written. Therefore, attempt to copy the man pages,
         # but if we are unable to copy, then just continue.
         for f in files:
-            Tools.Copy(f, dontFail=True)
+            Tools.Into(f, dontFail=True)
 
     @classmethod
     def FilterAndInstall(cls, vFiles, **optionalArgs):
@@ -544,7 +543,7 @@ class Core:
                 pass
 
             # Copy the file into the initramfs
-            Tools.Copy(file, dontFail=optionalArgs.get("dontFail", False))
+            Tools.Into(file, dontFail=optionalArgs.get("dontFail", False))
 
     @classmethod
     def CopyModules(cls):
@@ -609,7 +608,7 @@ class Core:
             return
 
         for module in moddeps:
-            Tools.Copy(module)
+            Tools.Into(module)
 
         # Update module dependency database inside the initramfs
         cls.GenerateModprobeInfo()
@@ -671,4 +670,4 @@ class Core:
 
         # Copy all the dependencies of the binary files into the initramfs
         for library in bindeps:
-            Tools.Copy(library)
+            Tools.Into(library)

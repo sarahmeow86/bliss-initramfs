@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import shutil
 import json
 import argparse
 
@@ -99,7 +98,7 @@ class Tools:
 
         # Removes the temporary directory
         if os.path.exists(var.temp):
-            shutil.rmtree(var.temp)
+            Tools.RemoveTree(var.temp)
 
             if os.path.exists(var.temp):
                 cls.Warn("Failed to delete the " + var.temp + " directory. Exiting.")
@@ -113,15 +112,13 @@ class Tools:
         quit()
 
     @classmethod
-    def Copy(cls, vFile, **optionalArgs):
-        """ Intelligently copies the file into the initramfs
+    def Into(cls, vFile, **optionalArgs):
+        """ Intelligently copies the file _into_ the initramfs
 
             Optional Args:
                directoryPrefix = Prefix that we should add when constructing the file path
                dontFail = If the file wasn't able to be copied, do not fail.
         """
-        # NOTE: shutil.copy will dereference all symlinks before copying.
-
         # If a prefix was passed into the function as an optional argument
         # it will be used below.
         directoryPrefix = optionalArgs.get("directoryPrefix", None)
@@ -139,16 +136,16 @@ class Tools:
         if os.path.exists(path):
             if os.path.isfile(path):
                 os.remove(path)
-                shutil.copy(targetFile, path)
+                Tools.Copy(targetFile, path)
         else:
             if os.path.isfile(targetFile):
                 # Make sure that the directory that this file wants to be in
                 # exists, if not then create it.
                 if os.path.isdir(os.path.dirname(path)):
-                    shutil.copy(targetFile, path)
+                    Tools.Copy(targetFile, path)
                 else:
                     os.makedirs(os.path.dirname(path))
-                    shutil.copy(targetFile, path)
+                    Tools.Copy(targetFile, path)
             elif os.path.isdir(targetFile):
                 os.makedirs(path)
 
@@ -174,12 +171,73 @@ class Tools:
         targetFile = targetDest + "/" + sourceFileName
 
         if os.path.exists(sourceFile):
-            shutil.copy(sourceFile, targetFile)
+            Tools.Copy(sourceFile, targetFile)
 
             if not os.path.isfile(targetFile):
                 Tools.Fail('Error creating the "' + sourceFileName + '" file. Exiting.')
         else:
             Tools.Fail("The source file doesn't exist: " + sourceFile)
+
+    @classmethod
+    def Copy(cls, source, target, recursive=False):
+        # https://github.com/fearedbliss/bliss-initramfs/issues/32
+        # Using 'shutil.[copytree,copy and possibly rmtree] causes
+        # issues in Bedrock Linux where it seems they are using FUSE
+        # in interesting ways to separate different "stratas". Regardless,
+        # shutil seems to be behaving weird in these cases and throwing
+        # exceptions. Switching these implementations to the regular
+        # UNIX shell commands that can work in these environments and maintain
+        # expected UNIX behavior.
+        if not os.path.exists(source):
+            Tools.Fail(
+                "Copy: The following file/directory doesn't exist: {}".format(source)
+            )
+
+        cmd = "cp "
+
+        if recursive:
+            cmd += "-r "
+
+        # Try and account for spaces
+        cmd += '"' + source + '" "' + target + '"'
+        result = call(cmd, shell=True)
+        if result != 0:
+            Tools.Fail(
+                "An error occurred while copying {} to {}. Debug: recursive = {}".format(
+                    source, target, recursive
+                )
+            )
+
+    @classmethod
+    def Remove(cls, target, recursive=False):
+        if not os.path.exists(target):
+            Tools.Fail(
+                "Remove: The following file/directory doesn't exist: {}".format(target)
+            )
+
+        cmd = "rm "
+
+        if recursive:
+            cmd += "-r "
+
+        # Try and account for spaces
+        cmd += '"' + target + '"'
+        result = call(cmd, shell=True)
+
+        if result != 0:
+            Tools.Fail(
+                "An error occurred while removing {}. Debug: recursive = {}".format(
+                    target, recursive
+                )
+            )
+
+    @classmethod
+    def RemoveTree(cls, target):
+        Tools.Remove(target, True)
+
+    @classmethod
+    def CopyTree(cls, source, target):
+        Tools.Copy(source, target, True)
 
     @classmethod
     def CopyConfigOrWarn(cls, targetConfig):
@@ -188,7 +246,7 @@ class Tools:
         """
         if os.path.isfile(targetConfig):
             Tools.Flag("Copying " + targetConfig + " from the current system...")
-            Tools.Copy(targetConfig)
+            Tools.Into(targetConfig)
         else:
             Tools.Warn(
                 targetConfig
@@ -206,7 +264,7 @@ class Tools:
             )
         except:
             Tools.Fail(
-                "An error occured while processing the following command: " + command
+                "An error occurred while processing the following command: " + command
             )
 
     @classmethod
