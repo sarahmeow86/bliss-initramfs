@@ -1,4 +1,4 @@
-## Bliss Initramfs 9.3.0
+## Bliss Initramfs 9.4.0
 #### Jonathan Vasquez (fearedbliss)
 #### Designed for Gentoo Linux
 
@@ -17,7 +17,7 @@ to build the initramfs for. That's it!
 
 ## License
 
-Released under the Apache License 2.0
+Released under the **[Simplified BSD License](LICENSE)**.
 
 ## Dependencies
 

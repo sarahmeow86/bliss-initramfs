@@ -1,4 +1,3 @@
-
 ## Creating the initramfs
 
 Run the script by running: `./mkinitrd -k $(uname -r)`
