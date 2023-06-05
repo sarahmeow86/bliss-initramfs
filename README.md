@@ -2,6 +2,12 @@
 #### Jonathan Vasquez (fearedbliss)
 #### Designed for Gentoo Linux
 
+## Status
+
+This project is no longer actively maintained since I have switched away from Linux to FreeBSD
+for my servers and personal computer. Please use another initramfs generator with OpenZFS support
+or fork the project.
+
 ## Description
 
 Generates an initramfs image with all files needed to boot your Gentoo Linux
