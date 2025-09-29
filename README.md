@@ -37,16 +37,28 @@ Released under the **[Simplified BSD License](LICENSE)**.
 Please have the following installed:
 
 ### Required Dependencies
-- dev-lang/python 3.6+
-- app-arch/cpio
-- app-shells/bash
+
+- dev-lang/python 3.11+ (Python 3.11 or newer required)
+- sys-apps/busybox (Core utilities)
+- app-arch/cpio (For creating the initramfs)
+- app-shells/bash (Shell support)
 - sys-apps/kmod (`lzma` support required to read compressed kernel modules)
-- sys-apps/grep
-- app-arch/gzip
-- sys-fs/zfs
-- sys-fs/zfs-kmod
+- sys-apps/grep (Text processing)
+- app-arch/gzip (Compression)
+- sys-fs/zfs (ZFS filesystem support)
+- sys-fs/zfs-kmod (ZFS kernel modules)
 - sys-fs/udev OR sys-fs/eudev OR sys-apps/systemd (UUIDs, Labels, etc)
 - sys-apps/kbd (Keymap support)
+
+### Optional Dependencies
+
+- sys-block/nvme-cli (If using NVMe drives)
+
+### Development Dependencies
+
+- dev-python/poetry (For managing Python dependencies)
+- dev-python/black (Code formatting)
+- dev-python/beautysh (Shell script formatting)
 
 For more information/instructions check the `USAGE` file.
 
