@@ -4,9 +4,16 @@
 
 ## Status
 
-This project is no longer actively maintained since I have switched away from Linux to FreeBSD
-for my servers and personal computer. Please use another initramfs generator with OpenZFS support
-or fork the project.
+This is an actively maintained fork of the original bliss-initramfs project, now with support for:
+
+- Python 3.11+
+- Modern subprocess calls
+- NVMe module support
+- Various improvements and bug fixes
+
+Maintained by [sarahmeow86](https://github.com/sarahmeow86).
+
+The original project by Jonathan Vasquez can be found at [Codeberg](https://codeberg.org/fearedbliss/bliss-initramfs).
 
 ## Description
 
