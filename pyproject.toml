@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bliss-initramfs"
-version = "9.4.0"
+version = "9.5.0"
 description = "Generates an initramfs image with all files and dependencies needed to boot your Gentoo Linux system installed on OpenZFS."
 authors = ["Jonathan Vasquez <jon@xyinn.org>"]
 license = "Simplified BSD License"
