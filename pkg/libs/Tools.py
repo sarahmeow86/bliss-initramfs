@@ -311,19 +311,19 @@ class Tools:
     def Colorize(cls, vColor, vMessage):
         """Returns the string with a color to be used in bash."""
         if vColor == "red":
-            coloredMessage = "\e[1;31m" + vMessage + "\e[0;m"
+            coloredMessage = "\033[1;31m" + vMessage + "\033[0;m"
         elif vColor == "yellow":
-            coloredMessage = "\e[1;33m" + vMessage + "\e[0;m"
+            coloredMessage = "\033[1;33m" + vMessage + "\033[0;m"
         elif vColor == "green":
-            coloredMessage = "\e[1;32m" + vMessage + "\e[0;m"
+            coloredMessage = "\033[1;32m" + vMessage + "\033[0;m"
         elif vColor == "cyan":
-            coloredMessage = "\e[1;36m" + vMessage + "\e[0;m"
+            coloredMessage = "\033[1;36m" + vMessage + "\033[0;m"
         elif vColor == "purple":
-            coloredMessage = "\e[1;34m" + vMessage + "\e[0;m"
+            coloredMessage = "\033[1;34m" + vMessage + "\033[0;m"
         elif vColor == "white":
-            coloredMessage = "\e[1;37m" + vMessage + "\e[0;m"
+            coloredMessage = "\033[1;37m" + vMessage + "\033[0;m"
         elif vColor == "pink":
-            coloredMessage = "\e[1;35m" + vMessage + "\e[0;m"
+            coloredMessage = "\033[1;35m" + vMessage + "\033[0;m"
         elif vColor == "none":
             coloredMessage = vMessage
 

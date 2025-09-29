@@ -4,14 +4,18 @@ version = "9.4.0"
 description = "Generates an initramfs image with all files and dependencies needed to boot your Gentoo Linux system installed on OpenZFS."
 authors = ["Jonathan Vasquez <jon@xyinn.org>"]
 license = "Simplified BSD License"
+packages = [
+    { include = "pkg" },
+    { include = "mkinitrd.py" }
+]
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.11"
 
-[tool.poetry.dev-dependencies]
-black = "19.10b0"
-beautysh = "6.0.1"
+[tool.poetry.group.dev.dependencies]
+black = "^23.9.1"
+beautysh = "^6.2.1"
 
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

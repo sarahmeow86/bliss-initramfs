@@ -25,7 +25,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-from subprocess import call
+from subprocess import run
 
 import pkg.libs.Variables as var
 
@@ -39,7 +39,7 @@ class Main:
     @classmethod
     def start(cls):
         Tools.ProcessArguments(Modules)
-        call(["clear"])
+        run(["clear"], check=False)
         Tools.PrintHeader()
         Core.LoadSettings()
         Core.AddFilesAfterSettingsLoaded()

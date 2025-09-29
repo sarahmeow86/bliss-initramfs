@@ -6,7 +6,7 @@
         "directories": []
     },
     "modules": {
-        "files": []
+        "files": ["nvme", "nvme-core"]
     },
     "base": {
         "files": [

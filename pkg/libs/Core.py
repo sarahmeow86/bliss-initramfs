@@ -26,8 +26,7 @@
 import os
 import re
 
-from subprocess import call
-from subprocess import check_output
+from subprocess import run, check_output
 from subprocess import CalledProcessError
 
 import pkg.libs.Variables as var
@@ -156,7 +155,7 @@ class Core:
         Tools.Info("Creating temporary directory at " + var.temp + " ...")
 
         for dir in var.baselayout:
-            call(["mkdir", "-p", dir])
+            run(["mkdir", "-p", dir], check=False)
 
     @classmethod
     def SetAndCheckDesiredKernel(cls):
@@ -201,7 +200,7 @@ class Core:
         Tools.Into(var.modules + "/modules.order")
         Tools.Into(var.modules + "/modules.builtin")
 
-        result = call(["depmod", "-b", var.temp, var.kernel])
+        result = run(["depmod", "-b", var.temp, var.kernel], check=False).returncode
 
         if result != 0:
             Tools.Fail(
@@ -271,7 +270,7 @@ class Core:
             + var.temp
             + ' /bin/busybox sh -c "cd /bin && /bin/busybox --install -s ."'
         )
-        callResult = call(cmd, shell=True)
+        callResult = run(cmd, shell=True, check=False).returncode
 
         if callResult != 0:
             Tools.Fail("Unable to create busybox links via chroot!")
@@ -318,20 +317,20 @@ class Core:
             + sourceDirectory
             + ' -iname "*.so.*" -exec ln -sf "{}" '
             + targetDirectory
-            + " \;"
+            + " ;"
         )
         cmd = f'chroot {var.temp} /bin/busybox sh -c "{pcmd}"'
-        call(cmd, shell=True)
+        run(cmd, shell=True, check=False)
 
         pcmd = (
             "find "
             + sourceDirectory
             + ' -iname "*.so" -exec ln -sf "{}" '
             + targetDirectory
-            + " \;"
+            + " ;"
         )
         cmd = f'chroot {var.temp} /bin/busybox sh -c "{pcmd}"'
-        call(cmd, shell=True)
+        run(cmd, shell=True, check=False)
 
     @classmethod
     def _CopyUdevAndDeleteFiles(cls, udevDirectory, udevExcludedFiles):
@@ -378,7 +377,7 @@ class Core:
     def DumpSystemKeymap(cls):
         """Dumps the current system's keymap."""
         pathToKeymap = var.temp + "/etc/keymap"
-        result = call("dumpkeys > " + pathToKeymap, shell=True)
+        result = run("dumpkeys > " + pathToKeymap, shell=True, check=False).returncode
 
         if result != 0 or not os.path.isfile(pathToKeymap):
             Tools.Warn(
@@ -393,7 +392,7 @@ class Core:
         Tools.Info("Performing finishing steps ...")
 
         # Create mtab file
-        call(["touch", var.temp + "/etc/mtab"])
+        run(["touch", var.temp + "/etc/mtab"], check=False)
 
         if not os.path.isfile(var.temp + "/etc/mtab"):
             Tools.Fail("Error creating the mtab file. Exiting.")
@@ -404,14 +403,14 @@ class Core:
         Tools.SafeCopy(var.filesDirectory + "/init", var.temp)
 
         # Give execute permissions to the script
-        cr = call(["chmod", "u+x", var.temp + "/init"])
+        cr = run(["chmod", "u+x", var.temp + "/init"], check=False).returncode
 
         if cr != 0:
             Tools.Fail("Failed to give executive privileges to " + var.temp + "/init")
 
         # Sets initramfs script version number
         cmd = f"echo {var.version} > {var.temp}/version.bliss"
-        call(cmd, shell=True)
+        run(cmd, shell=True, check=False)
 
         # Copy all of the modprobe configurations
         if os.path.isdir(var.modprobeDirectory):
@@ -425,7 +424,7 @@ class Core:
         # Add any modules needed into the initramfs
         requiredModules = ",".join(Modules.GetFiles())
         cmd = f"echo {requiredModules} > {var.temp}/modules.bliss"
-        call(cmd, shell=True)
+        run(cmd, shell=True, check=False)
 
         cls.CopyLibGccLibrary()
 
@@ -475,7 +474,7 @@ class Core:
         # the ${T} path.
         os.chdir(var.temp)
 
-        call(
+        run(
             [
                 "find . -print0 | cpio -o --null --format=newc | gzip -9 > "
                 + var.home
@@ -483,6 +482,7 @@ class Core:
                 + var.initrd
             ],
             shell=True,
+            check=False
         )
 
         if not os.path.isfile(var.home + "/" + var.initrd):
@@ -584,7 +584,7 @@ class Core:
 
         # Try to update the module dependencies database before searching it
         try:
-            result = call(["depmod", var.kernel])
+            result = run(["depmod", var.kernel], check=False).returncode
 
             if result:
                 Tools.Fail("Error updating module dependency database!")
@@ -642,7 +642,7 @@ class Core:
             try:
                 # (Dirty implementation) Use the exit code of grep with no messages being outputed to see if this interpreter exists.
                 # We don't know the name yet which is why we are using the wildcard in the variable declaration.
-                result = call("grep -Uqs thiswillnevermatch " + libc, shell=True)
+                result = run("grep -Uqs thiswillnevermatch " + libc, shell=True, check=False).returncode
 
                 # 0 = match found
                 # 1 = file exists but not found
